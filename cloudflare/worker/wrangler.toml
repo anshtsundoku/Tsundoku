@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "tsundoku"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "7546ad22-0771-438f-a443-af00a0d7e7f6"
 
 # Cron triggers for the four ingestion pipelines.
 [triggers]
