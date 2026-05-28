@@ -129,7 +129,8 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         {selection && (
           <button
             onClick={saveHighlight}
-            className="fixed bottom-6 right-6 z-20 bg-wood text-bg shadow-lg rounded-full px-4 py-2.5 flex items-center gap-2 hover:bg-wood-2 transition"
+            className="fixed right-6 z-20 bg-wood text-bg shadow-lg rounded-full px-4 py-2.5 flex items-center gap-2 hover:bg-wood-2 transition"
+            style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom) + 0.75rem)' }}
           >
             <HighlightIcon className="w-4 h-4" />
             <span className="text-sm font-bold">Highlight</span>

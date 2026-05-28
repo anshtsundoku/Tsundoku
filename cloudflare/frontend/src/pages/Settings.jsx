@@ -69,7 +69,7 @@ export default function Settings() {
           <p className="mb-2">
             <strong className="text-ink">Tsundoku</strong> — Japanese for the act of acquiring books and letting them pile up unread.
           </p>
-          <p>A quiet feed of the few sources you trust. Long-form over short-form. Read deliberately.</p>
+          <p>A quiet feed of the few sources you trust. Read deliberately.</p>
         </div>
       </Section>
     </div>

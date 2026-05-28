@@ -29,8 +29,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-bg text-ink">
-      <header className="sticky top-0 z-20 backdrop-blur bg-bg/85 border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
+      <header
+        className="sticky top-0 z-20 backdrop-blur bg-bg/85 border-b border-border"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <div
+          className="max-w-5xl mx-auto py-3 sm:py-4 flex items-center gap-3"
+          style={{
+            paddingLeft:  'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          }}
+        >
           <Link to="/" className="font-bold tracking-tight flex items-center gap-2.5">
             <span className="text-wood"><Brand size="md" /></span>
             <span className="text-base sm:text-lg">Tsundoku</span>
@@ -46,7 +55,14 @@ export default function App() {
           </Link>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <main
+        className="max-w-5xl mx-auto py-6 sm:py-10"
+        style={{
+          paddingLeft:   'max(1rem, env(safe-area-inset-left))',
+          paddingRight:  'max(1rem, env(safe-area-inset-right))',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+        }}
+      >
         <Routes>
           <Route path="/"           element={<Home />} />
           <Route path="/d/:slug"    element={<Domain />} />
