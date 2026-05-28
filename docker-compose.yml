@@ -1,0 +1,79 @@
+version: '3.9'
+
+# Mindful — one-command stack, fits inside 1 GB RAM (GCP e2-micro free tier).
+# Twitter is now scraped in-process inside the workers container using your
+# own session cookies — no Nitter or RSSHub containers needed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mindful
+      POSTGRES_PASSWORD: mindful
+      POSTGRES_DB: mindful
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindful"]
+      interval: 5s
+      retries: 10
+    mem_limit: 256m
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=128MB
+      -c maintenance_work_mem=16MB
+      -c work_mem=4MB
+      -c max_connections=30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    mem_limit: 96m
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_started }
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgres://mindful:mindful@postgres:5432/mindful
+      REDIS_URL: redis://redis:6379
+      NODE_OPTIONS: --max-old-space-size=192
+    ports:
+      - "4000:4000"
+    mem_limit: 256m
+
+  workers:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.workers
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_started }
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgres://mindful:mindful@postgres:5432/mindful
+      REDIS_URL:    redis://redis:6379
+      NODE_OPTIONS: --max-old-space-size=192
+    mem_limit: 256m
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    mem_limit: 64m
+
+volumes:
+  pgdata:
+  redisdata:

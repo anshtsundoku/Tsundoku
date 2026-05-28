@@ -1,0 +1,35 @@
+name = "tsundoku-api"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 binding — create with `wrangler d1 create tsundoku`.
+# After creation, paste the printed database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "tsundoku"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+# Cron triggers for the four ingestion pipelines.
+[triggers]
+crons = [
+  "*/5 * * * *",     # RSS + websites
+  "*/20 * * * *",    # Twitter
+  "*/15 * * * *",    # YouTube
+  "*/10 * * * *",    # Gmail newsletters
+]
+
+[vars]
+TWITTER_POLL_HANDLES_PER_TICK = "5"
+RSS_MAX_ITEMS = "20"
+YOUTUBE_MAX_PER_CHANNEL = "5"
+OWNER_EMAIL = "ansh.tsundoku@gmail.com"
+
+# Secrets (set with `wrangler secret put <NAME>`):
+#   GEMINI_API_KEY
+#   YOUTUBE_API_KEY
+#   GMAIL_CLIENT_ID
+#   GMAIL_CLIENT_SECRET
+#   GMAIL_REFRESH_TOKEN
+#   TWITTER_AUTH_TOKEN
+#   TWITTER_CT0
