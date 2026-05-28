@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
 import PostCard from '../components/PostCard.jsx';
@@ -12,11 +12,14 @@ const TABS = [
 ];
 
 export default function Domain() {
-  const { slug } = useParams();
+  // `postId` will be defined when the URL is /d/:slug/p/:postId — that's how
+  // we make post detail a real route entry (so iOS swipe-back returns here
+  // instead of going all the way to home).
+  const { slug, postId } = useParams();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('unread');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(null);
   const [domain, setDomain] = useState(null);
 
   const load = async () => {
@@ -31,19 +34,32 @@ export default function Domain() {
 
   useEffect(() => { setLoading(true); load(); }, [slug, tab]);
 
-  // Replace WebSocket subscription with a 30s poll. The tab is invisible →
-  // poller pauses, so we don't waste CPU/network when not in use.
+  // Re-poll every 15s while tab is visible.
   usePoll(load, 15000, [slug, tab]);
+
+  // Find the open post (when postId is in the URL). Fall back to fetching it
+  // directly if it's not in the current tab's loaded list (e.g. user landed
+  // directly on the URL).
+  const [postDirect, setPostDirect] = useState(null);
+  useEffect(() => {
+    if (!postId) { setPostDirect(null); return; }
+    const inList = posts.find(p => String(p.id) === String(postId));
+    if (inList) { setPostDirect(null); return; }
+    // Not in the current list — fetch directly so we still render it.
+    api.getPost(postId).then(setPostDirect).catch(() => setPostDirect(null));
+  }, [postId, posts]);
+  const openPost = postId
+    ? (posts.find(p => String(p.id) === String(postId)) || postDirect)
+    : null;
 
   const onMarkRead = async (post) => {
     await api.patchPost(post.id, { is_read: true });
-    setPosts(prev => prev.filter(p => p.id !== post.id || tab !== 'unread'));
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_read: true } : p));
   };
   const onToggleBookmark = async (post) => {
     const next = !post.is_bookmarked;
     await api.patchPost(post.id, { is_bookmarked: next });
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_bookmarked: next } : p)
-                          .filter(p => tab !== 'bookmark' || p.is_bookmarked));
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_bookmarked: next } : p));
   };
   const onDismiss = async (post) => {
     setPosts(prev => prev.filter(p => p.id !== post.id));
@@ -51,7 +67,25 @@ export default function Domain() {
     catch (e) { console.warn('dismiss failed, reloading', e); load(); }
   };
 
-  const openPost = useMemo(() => posts.find(p => p.id === open) || null, [open, posts]);
+  // ---- Post detail view (full-screen on every viewport) ----
+  if (postId) {
+    if (!openPost) return <div className="text-muted">Loading…</div>;
+    return (
+      <PostDetail
+        post={openPost}
+        onClose={() => navigate(`/d/${slug}`)}
+        onMarkRead={() => { onMarkRead(openPost); }}
+        onToggleBookmark={() => onToggleBookmark(openPost)}
+      />
+    );
+  }
+
+  // ---- Feed view ----
+  const visiblePosts = tab === 'unread'
+    ? posts.filter(p => !p.is_read && !p.is_dismissed)
+    : tab === 'read'
+    ? posts.filter(p => p.is_read && !p.is_dismissed)
+    : posts.filter(p => p.is_bookmarked && !p.is_dismissed);
 
   return (
     <div>
@@ -76,32 +110,23 @@ export default function Domain() {
 
       {loading ? (
         <div className="text-muted">Loading…</div>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <div className="text-muted text-center py-12">
           {tab === 'unread' ? 'You’re all caught up.' : tab === 'read' ? 'Nothing read yet.' : 'No bookmarks here yet.'}
         </div>
       ) : (
         <div className="space-y-3">
-          {posts.map(post => (
+          {visiblePosts.map(post => (
             <PostCard
               key={post.id}
               post={post}
-              onOpen={() => setOpen(post.id)}
+              onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
               onMarkRead={() => onMarkRead(post)}
               onToggleBookmark={() => onToggleBookmark(post)}
               onDismiss={() => onDismiss(post)}
             />
           ))}
         </div>
-      )}
-
-      {openPost && (
-        <PostDetail
-          post={openPost}
-          onClose={() => setOpen(null)}
-          onMarkRead={() => { onMarkRead(openPost); setOpen(null); }}
-          onToggleBookmark={() => onToggleBookmark(openPost)}
-        />
       )}
     </div>
   );

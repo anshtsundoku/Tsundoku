@@ -9,9 +9,9 @@
 import { Router, json, handleOptions } from './lib/router.js';
 import { listDomains, createDomain }       from './routes/domains.js';
 import { listSources, createSource, deleteSource } from './routes/sources.js';
-import { listPosts, patchPost }            from './routes/posts.js';
+import { listPosts, getPost, patchPost }   from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
-import { triggerIngest, status }           from './routes/admin.js';
+import { triggerIngest, status, regenerateTldrs } from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 
 import { runRss }         from './ingest/rss.js';
@@ -31,6 +31,7 @@ const router = new Router()
   .delete('/api/sources/:id',            deleteSource)
   // Posts
   .get('/api/posts',                     listPosts)
+  .get('/api/posts/:id',                 getPost)
   .patch('/api/posts/:id',               patchPost)
   // Highlights
   .get('/api/highlights',                listHighlights)
@@ -42,7 +43,8 @@ const router = new Router()
   // Admin / debugging
   .get('/api/admin/status',              status)
   .post('/api/admin/trigger-ingest',     triggerIngest)
-  .post('/api/admin/trigger-ingest/:pipeline', triggerIngest);
+  .post('/api/admin/trigger-ingest/:pipeline', triggerIngest)
+  .post('/api/admin/regenerate-tldrs',   regenerateTldrs);
 
 export default {
   async fetch(request, env, ctx) {

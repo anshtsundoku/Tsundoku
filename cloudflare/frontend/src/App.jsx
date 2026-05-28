@@ -46,8 +46,8 @@ export default function App() {
           }}
         >
           <Link to="/" className="font-bold tracking-tight flex items-center gap-3">
-            <span className="text-wood"><Brand size="lg" /></span>
-            <span className="text-xl sm:text-2xl">Tsundoku</span>
+            <span className="text-wood"><Brand size="xl" /></span>
+            <span className="text-2xl sm:text-3xl">Tsundoku</span>
           </Link>
           <div className="flex-1" />
           {loc.pathname !== '/' && (
@@ -69,10 +69,14 @@ export default function App() {
         }}
       >
         <Routes>
-          <Route path="/"           element={<Home />} />
-          <Route path="/d/:slug"    element={<Domain />} />
-          <Route path="/sources"    element={<Sources />} />
-          <Route path="/settings"   element={<Settings />} />
+          <Route path="/"                  element={<Home />} />
+          <Route path="/d/:slug"           element={<Domain />} />
+          {/* Post detail is its own route so iOS swipe-back returns to the
+              feed (not all the way to home) and the page fills the screen
+              on desktop. */}
+          <Route path="/d/:slug/p/:postId" element={<Domain />} />
+          <Route path="/sources"           element={<Sources />} />
+          <Route path="/settings"          element={<Settings />} />
         </Routes>
       </main>
     </div>

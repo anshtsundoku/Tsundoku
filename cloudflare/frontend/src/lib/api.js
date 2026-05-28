@@ -33,6 +33,7 @@ export const api = {
     if (cursor) q.set('cursor', cursor);
     return request(`/posts?${q}`);
   },
+  getPost: (id) => request(`/posts/${id}`),
   patchPost: (id, data) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   dismissPost: (id) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify({ is_dismissed: true }) }),
 

@@ -1,6 +1,19 @@
 import { all, first } from '../lib/db.js';
 import { json } from '../lib/router.js';
 
+export async function getPost(_req, { env, params }) {
+  const p = await first(env, `
+    SELECT p.*, s.type AS source_type, s.identifier AS source_identifier,
+           s.display_name AS source_name, d.slug AS domain_slug
+      FROM posts p
+      JOIN sources s ON s.id = p.source_id
+      JOIN domains d ON d.id = p.domain_id
+     WHERE p.id = ?
+  `, [params.id]);
+  if (!p) return json({ error: 'not found' }, 404);
+  return json(p);
+}
+
 export async function listPosts(_req, { env, url }) {
   const domain = url.searchParams.get('domain');
   const filter = url.searchParams.get('filter') || 'unread';

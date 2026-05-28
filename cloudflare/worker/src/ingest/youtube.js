@@ -75,9 +75,17 @@ export async function runYoutube(env) {
       for (const v of vids) {
         const vid = v?.id?.videoId;
         if (!vid) continue;
+        // Try to grab the auto-caption transcript; YouTube blocks this from
+        // server fetches sometimes. When it fails, fall back to the video
+        // description (always available from the Data API) so Gemini has
+        // SOMETHING to summarize and the TLDR isn't blank.
         const transcript = await fetchTranscript(vid);
+        const description = v.snippet?.description || '';
+        const textForSummary = transcript || description;
         const { detailed, tldr, read_time_min } = await summarizeVideo(env, {
-          title: v.snippet?.title, transcript,
+          title: v.snippet?.title,
+          transcript: textForSummary,
+          hasTranscript: Boolean(transcript),
         });
         await upsertPost(env, {
           source_id: s.id,

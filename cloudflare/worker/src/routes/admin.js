@@ -6,16 +6,20 @@
 // /api proxy. Leave the token off → 401.
 
 import { json } from '../lib/router.js';
+import { all, first, run } from '../lib/db.js';
+import { summarize } from '../services/summarizer.js';
 import { runRss }         from '../ingest/rss.js';
 import { runYoutube }     from '../ingest/youtube.js';
 import { runTwitter }     from '../ingest/twitter.js';
 import { runNewsletters } from '../ingest/newsletter.js';
+import { runCleanup }     from '../ingest/cleanup.js';
 
 const PIPELINES = {
   rss:         runRss,
   youtube:     runYoutube,
   twitter:     runTwitter,
   newsletters: runNewsletters,
+  cleanup:     runCleanup,
 };
 
 function checkAuth(req, env) {
@@ -38,6 +42,49 @@ export async function triggerIngest(req, { env, ctx, params }) {
     );
   }
   return json({ triggered: which || 'all', queued: fns.length });
+}
+
+// POST /api/admin/regenerate-tldrs
+// Re-summarizes posts with missing or fallback ("(raw)") TLDRs using the
+// current prompt. Useful after the TLDR prompt is improved — backfills the
+// already-ingested content.
+export async function regenerateTldrs(req, { env, ctx }) {
+  if (!checkAuth(req, env)) return json({ error: 'unauthorized' }, 401);
+  const limit = Math.min(Number((await safeJson(req))?.limit || 30), 100);
+
+  // Fire-and-forget so the HTTP call returns immediately.
+  ctx.waitUntil((async () => {
+    const rows = await all(env, `
+      SELECT id, title, content_text
+        FROM posts
+       WHERE (tldr IS NULL OR tldr = '' OR tldr LIKE '(raw)%')
+         AND content_text IS NOT NULL
+         AND LENGTH(content_text) > 0
+       ORDER BY ingested_at DESC
+       LIMIT ?
+    `, [limit]);
+    let updated = 0;
+    for (const p of rows) {
+      try {
+        const { tldr } = await summarize(env, {
+          title: p.title, text: p.content_text, kind: 'article',
+        });
+        if (tldr) {
+          await run(env, `UPDATE posts SET tldr = ? WHERE id = ?`, [tldr, p.id]);
+          updated++;
+        }
+      } catch (e) {
+        console.warn('[regenerate-tldrs] post', p.id, 'failed:', e.message);
+      }
+    }
+    console.log(`[regenerate-tldrs] updated ${updated}/${rows.length} posts`);
+  })());
+
+  return json({ queued: true, max: limit });
+}
+
+async function safeJson(req) {
+  try { return await req.json(); } catch { return {}; }
 }
 
 // GET /api/admin/status → quick health view

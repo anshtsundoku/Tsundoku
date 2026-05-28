@@ -21,10 +21,12 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        // Renamed (icon-dark-*) to force iOS to re-download instead of
+        // using the cached version it stubbornly held onto.
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-dark-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-dark-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-dark-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

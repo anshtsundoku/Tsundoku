@@ -47,61 +47,72 @@ export const XIcon = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M18 6L6 18M6 6l12 12" /></svg>
 );
 
-// Domain icons.
+// Domain icons. Kept simple — only <circle>, <rect>, <line>, and <path L>
+// commands. No <ellipse>, no Q/A curves: those have rendered inconsistently
+// on older iOS Safari builds. All icons render identically on desktop and
+// iPhone now.
 export const DomainIcon = ({ name, className = 'w-6 h-6' }) => {
   switch (name) {
     case 'football':
+      // Soccer ball — circle + central pentagon. Cleaner than spokes.
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
           <circle cx="12" cy="12" r="9" />
-          <path d="M12 3l3 3-1 4-4 0-1-4z M12 21v-4 M3 12h4 M21 12h-4 M5 18l3-2 M19 18l-3-2" />
+          <path d="M12 7.5 L16 10.5 L14.5 15 L9.5 15 L8 10.5 Z" />
         </svg>
       );
     case 'sparkle':
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
-          <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+          <path d="M12 3 L13.8 7.7 L18.5 9.5 L13.8 11.3 L12 16 L10.2 11.3 L5.5 9.5 L10.2 7.7 Z" />
+          <path d="M19 15 L19.9 17.1 L22 18 L19.9 18.9 L19 21 L18.1 18.9 L16 18 L18.1 17.1 Z" />
         </svg>
       );
     case 'shopping':
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
-          <path d="M6 7h12l-1 13H7zM9 7V5a3 3 0 0 1 6 0v2" />
+          <path d="M6 7 L18 7 L17 20 L7 20 Z" />
+          <path d="M9 7 L9 5 L15 5 L15 7" />
         </svg>
       );
     case 'cube':
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
-          <path d="M21 7.5l-9-5-9 5v9l9 5 9-5z M3 7.5l9 5 9-5 M12 22V12" />
+          <path d="M21 7.5 L12 2.5 L3 7.5 L3 16.5 L12 21.5 L21 16.5 Z" />
+          <path d="M3 7.5 L12 12.5 L21 7.5" />
+          <line x1="12" y1="21.5" x2="12" y2="12.5" />
         </svg>
       );
     case 'circle':   // General — pure focal dot
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
           <circle cx="12" cy="12" r="8" />
-          <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
         </svg>
       );
-    case 'globe':    // Geopolitics — world view
+    case 'globe':    // Geopolitics — globe with equator + a meridian
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
           <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="12" y1="3" x2="12" y2="21" />
+          <path d="M12 3 L8 7 L8 17 L12 21" />
+          <path d="M12 3 L16 7 L16 17 L12 21" />
         </svg>
       );
-    case 'flag':     // India — a fluttering flag
+    case 'flag':     // India — flag on a pole
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
-          <path d="M5 3v18" />
-          <path d="M5 4 Q12 2 19 4 Q12 8 5 6 Z" />
+          <line x1="5" y1="3" x2="5" y2="21" />
+          <path d="M5 5 L19 5 L16 9 L19 13 L5 13 Z" />
         </svg>
       );
     case 'dots':     // Miscellaneous — three dots
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>
-          <circle cx="6"  cy="12" r="1.8" fill="currentColor" stroke="none" />
-          <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
-          <circle cx="18" cy="12" r="1.8" fill="currentColor" stroke="none" />
+          <circle cx="6"  cy="12" r="2" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+          <circle cx="18" cy="12" r="2" fill="currentColor" stroke="none" />
         </svg>
       );
     default:
