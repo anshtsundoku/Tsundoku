@@ -6,35 +6,45 @@
   /* Light mode: warm cream + light grey with walnut accents */
   --bg:        245 243 238;   /* #F5F3EE  warm cream */
   --elev:      255 254 251;   /* near-white card surface */
-  --ink:       58 46 38;      /* #3A2E26  espresso text */
-  --muted:     110 96 85;     /* #6E6055  muted text */
-  --wood:      107 68 35;     /* #6B4423  walnut brown */
-  --wood-2:    150 112 75;    /* #96704B  light walnut */
+  --ink:        58  46  38;   /* #3A2E26  espresso text */
+  --muted:     110  96  85;   /* #6E6055  muted text */
+  --wood:      107  68  35;   /* #6B4423  walnut brown */
+  --wood-2:    150 112  75;   /* #96704B  light walnut */
   --border:    229 221 210;   /* #E5DDD2  warm light grey */
   --highlight: 232 198 138;   /* #E8C68A  soft amber for highlights */
 }
 
 .dark {
   /* Dark mode: deep wood + warm cream text */
-  --bg:        26 22 20;      /* #1A1614 */
-  --elev:      34 28 24;      /* #221C18 */
+  --bg:         26  22  20;   /* #1A1614 */
+  --elev:       34  28  24;   /* #221C18 */
   --ink:       232 223 211;   /* #E8DFD3 */
   --muted:     156 141 126;   /* #9C8D7E */
   --wood:      176 137 104;   /* #B08968  warm wood accent */
-  --wood-2:    140 105 78;    /* #8C694E */
-  --border:    47 39 34;      /* #2F2722 */
-  --highlight: 138 100 47;    /* deeper amber that stays subtle */
+  --wood-2:    140 105  78;   /* #8C694E */
+  --border:     47  39  34;   /* #2F2722 */
+  --highlight: 138 100  47;   /* deeper amber that stays subtle */
 }
 
-html, body, #root {
-  height: 100%;
+/* iOS / mobile hygiene */
+html {
+  -webkit-text-size-adjust: 100%;            /* don't auto-zoom on orientation change */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;            /* no rubber-band bouncing the chrome */
 }
+html, body, #root { height: 100%; }
 
 body {
   @apply bg-bg text-ink antialiased;
   font-family: 'Calibri', 'Carlito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-tap-highlight-color: transparent;
   font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Prevent iOS Safari from zooming the page when you focus a form field —
+   any input/select with <16px font triggers the zoom; this neutralises it. */
+input, select, textarea {
+  font-size: max(16px, 1rem);
 }
 
 /* Smooth theme transition */
@@ -49,7 +59,7 @@ mark.mindful-highlight {
   -webkit-box-decoration-break: clone;
 }
 
-/* Quiet scrollbar */
+/* Quiet scrollbar (desktop only — iOS hides natively) */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 *::-webkit-scrollbar-track { background: transparent; }

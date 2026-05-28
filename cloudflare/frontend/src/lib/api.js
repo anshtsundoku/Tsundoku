@@ -1,8 +1,11 @@
-// Cloudflare Pages version. The path is always `/api/...`. Pages handles
-// the proxy to the Worker via _redirects (see ../../_redirects). In `npm run dev`
-// Vite proxies /api to a locally-running `wrangler dev`.
+// API client.
+//
+// Calls go directly to the Cloudflare Worker (cross-origin). The worker is
+// CORS-enabled (access-control-allow-origin: *), so this works without any
+// Pages _redirects rule on /api/* — the frontend just talks to the worker
+// directly. If you ever rename the worker, update this one line.
 
-const BASE = '/api';
+const BASE = 'https://tsundoku-api.ansh-tsundoku.workers.dev/api';
 
 async function request(path, opts = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -20,9 +23,11 @@ async function request(path, opts = {}) {
 export const api = {
   listDomains: () => request('/domains'),
   createDomain: (data) => request('/domains', { method: 'POST', body: JSON.stringify(data) }),
+
   listSources: (domainSlug) => request(`/sources${domainSlug ? `?domain=${domainSlug}` : ''}`),
   createSource: (data) => request('/sources', { method: 'POST', body: JSON.stringify(data) }),
   deleteSource: (id) => request(`/sources/${id}`, { method: 'DELETE' }),
+
   listPosts: (domainSlug, filter = 'unread', cursor) => {
     const q = new URLSearchParams({ domain: domainSlug, filter });
     if (cursor) q.set('cursor', cursor);
@@ -30,10 +35,15 @@ export const api = {
   },
   patchPost: (id, data) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   dismissPost: (id) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify({ is_dismissed: true }) }),
+
   listHighlights: (params = {}) => {
     const q = new URLSearchParams(params);
     return request(`/highlights?${q}`);
   },
   createHighlight: (data) => request('/highlights', { method: 'POST', body: JSON.stringify(data) }),
   deleteHighlight: (id) => request(`/highlights/${id}`, { method: 'DELETE' }),
+
+  // Cross-device preferences (theme).
+  getPrefs:   () => request('/prefs'),
+  patchPrefs: (data) => request('/prefs', { method: 'PATCH', body: JSON.stringify(data) }),
 };

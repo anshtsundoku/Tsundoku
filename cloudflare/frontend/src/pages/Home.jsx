@@ -23,7 +23,7 @@ export default function Home() {
   };
 
   useEffect(() => { load(); }, []);
-  usePoll(load, 30000, []);
+  usePoll(load, 15000, []);
 
   if (loading) return <div className="text-muted">Loading…</div>;
   if (error)   return <div className="text-wood text-sm">Couldn’t load domains: {error}</div>;

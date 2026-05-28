@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { currentTheme, applyTheme } from '../lib/theme.js';
+import { currentTheme, setTheme as persistTheme } from '../lib/theme.js';
 
 export default function Settings() {
-  const [theme, setTheme] = useState(currentTheme());
+  const [theme, setLocalTheme] = useState(currentTheme());
   const [refreshState, setRefreshState] = useState('idle');  // idle | loading | done | error
 
-  useEffect(() => { applyTheme(theme); }, [theme]);
+  // When the toggle is clicked, apply theme locally AND sync to server so
+  // the choice carries across devices.
+  const changeTheme = (t) => { setLocalTheme(t); persistTheme(t); };
+
+  useEffect(() => {}, []);
 
   const triggerRefresh = async () => {
     setRefreshState('loading');
@@ -32,8 +36,8 @@ export default function Settings() {
           desc="Light or dark — both use the same warm wood + cream palette."
           right={
             <div className="flex bg-bg border border-border rounded-lg p-0.5">
-              <SegBtn active={theme === 'light'} onClick={() => setTheme('light')}>Light</SegBtn>
-              <SegBtn active={theme === 'dark'}  onClick={() => setTheme('dark')}>Dark</SegBtn>
+              <SegBtn active={theme === 'light'} onClick={() => changeTheme('light')}>Light</SegBtn>
+              <SegBtn active={theme === 'dark'}  onClick={() => changeTheme('dark')}>Dark</SegBtn>
             </div>
           }
         />

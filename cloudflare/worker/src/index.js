@@ -12,6 +12,7 @@ import { listSources, createSource, deleteSource } from './routes/sources.js';
 import { listPosts, patchPost }            from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
 import { triggerIngest, status }           from './routes/admin.js';
+import { getPrefs, patchPrefs }            from './routes/prefs.js';
 
 import { runRss }       from './ingest/rss.js';
 import { runYoutube }   from './ingest/youtube.js';
@@ -34,6 +35,9 @@ const router = new Router()
   .get('/api/highlights',                listHighlights)
   .post('/api/highlights',               createHighlight)
   .delete('/api/highlights/:id',         deleteHighlight)
+  // Preferences (cross-device theme etc.)
+  .get('/api/prefs',                     getPrefs)
+  .patch('/api/prefs',                   patchPrefs)
   // Admin / debugging
   .get('/api/admin/status',              status)
   .post('/api/admin/trigger-ingest',     triggerIngest)

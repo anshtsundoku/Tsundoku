@@ -33,7 +33,7 @@ export default function Domain() {
 
   // Replace WebSocket subscription with a 30s poll. The tab is invisible →
   // poller pauses, so we don't waste CPU/network when not in use.
-  usePoll(load, 30000, [slug, tab]);
+  usePoll(load, 15000, [slug, tab]);
 
   const onMarkRead = async (post) => {
     await api.patchPost(post.id, { is_read: true });

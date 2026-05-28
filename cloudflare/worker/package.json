@@ -10,7 +10,9 @@
     "migrate:remote": "wrangler d1 execute tsundoku --remote --file=migrations/0001_init.sql",
     "migrate:local":  "wrangler d1 execute tsundoku --local  --file=migrations/0001_init.sql",
     "seed:remote":    "wrangler d1 execute tsundoku --remote --file=migrations/0002_seed.sql",
-    "seed:local":     "wrangler d1 execute tsundoku --local  --file=migrations/0002_seed.sql"
+    "seed:local":     "wrangler d1 execute tsundoku --local  --file=migrations/0002_seed.sql",
+    "migrate:prefs":  "wrangler d1 execute tsundoku --remote --file=migrations/0003_prefs.sql",
+    "backup:remote":  "wrangler d1 export tsundoku --remote --output=backups/tsundoku-$(date +%Y%m%d-%H%M%S).sql"
   },
   "devDependencies": {
     "wrangler": "^3.78.0"

@@ -1,7 +1,12 @@
-// Tiny theme manager. Persists choice in localStorage; respects system preference
-// by default. Toggling adds/removes the .dark class on <html>.
+// Theme management — light/dark.
+//
+// Strategy: keep a localStorage copy for instant render on app load (no flash
+// of wrong theme), but sync with the server in the background so the choice
+// follows you between devices.
 
-const KEY = 'mindful.theme';
+import { api } from './api.js';
+
+const KEY = 'tsundoku.theme';
 
 export function currentTheme() {
   const saved = localStorage.getItem(KEY);
@@ -13,11 +18,31 @@ export function applyTheme(theme) {
   const t = theme || currentTheme();
   document.documentElement.classList.toggle('dark', t === 'dark');
   localStorage.setItem(KEY, t);
-  // Update the iOS status-bar tint.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'dark' ? '#1A1614' : '#F5F3EE');
 }
 
+// Background fetch: if the server has a theme different from local, switch.
+// Called once on app start.
+export async function syncThemeFromServer() {
+  try {
+    const prefs = await api.getPrefs();
+    if (prefs?.theme && (prefs.theme === 'light' || prefs.theme === 'dark')) {
+      if (prefs.theme !== currentTheme()) applyTheme(prefs.theme);
+    }
+  } catch (e) {
+    console.warn('[theme] failed to sync from server', e.message);
+  }
+}
+
+// Toggling theme: apply locally for instant UX, then push to server so other
+// devices pick it up on their next poll/load.
+export async function setTheme(theme) {
+  applyTheme(theme);
+  try { await api.patchPrefs({ theme }); }
+  catch (e) { console.warn('[theme] failed to sync to server', e.message); }
+}
+
 export function toggleTheme() {
-  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+  setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
 }
