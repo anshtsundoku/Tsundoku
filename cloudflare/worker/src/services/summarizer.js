@@ -72,16 +72,14 @@ export async function summarize(env, { title, text, kind = 'article' }) {
 }
 
 export async function summarizeVideo(env, { title, transcript, hasTranscript = true }) {
-  const read_time_min = readTimeFor(transcript);
   if (!transcript) {
-    // No transcript AND no description either — at least produce a TLDR
-    // from the title alone so the card isn't blank.
+    // No transcript AND no description — produce a TLDR from the title.
     if (title) {
       const tldr = (await callGemini(env, TLDR_PROMPT('video', title, title), 200))
                 || `• ${title}`;
-      return { detailed: '', tldr, read_time_min };
+      return { detailed: '', tldr, read_time_min: 1 };
     }
-    return { detailed: '', tldr: '', read_time_min };
+    return { detailed: '', tldr: '', read_time_min: 1 };
   }
   // Two-output prompt: detailed + structured TLDR. We tell Gemini whether
   // it has a transcript or just a description so it doesn't pretend to know
@@ -100,9 +98,14 @@ ${sourceLabel.charAt(0).toUpperCase() + sourceLabel.slice(1)}:
 ${transcript.slice(0, 20000)}`;
   const raw = (await callGemini(env, prompt, 900)) || '';
   const [detailed, tldr] = raw.split(/---+/).map(s => (s || '').trim());
+  const finalDetailed = detailed || (hasTranscript ? fallback(transcript) : transcript);
+  const finalTldr     = tldr     || fallback(transcript);
+  // Read-time is computed from the generated summary (what shows on the
+  // page), NOT the raw transcript — which can be huge for long videos.
+  // The video's own duration is added on top by the caller.
   return {
-    detailed: detailed || (hasTranscript ? fallback(transcript) : transcript),
-    tldr: tldr || fallback(transcript),
-    read_time_min,
+    detailed: finalDetailed,
+    tldr: finalTldr,
+    read_time_min: readTimeFor(finalDetailed),
   };
 }

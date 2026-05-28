@@ -1,10 +1,9 @@
 // YouTube ingestion in a Worker:
 //   1. List recent uploads via Data API v3 (free, 10k units/day quota).
-//   2. Fetch the auto-caption transcript via YouTube's timedtext endpoint.
-//   3. Summarize via Gemini.
-//
-// We avoid the youtube-transcript npm package (which uses Node-specific HTTP)
-// and call the timedtext URL directly.
+//   2. Fetch contentDetails (durations) for the discovered videos.
+//   3. Fetch the auto-caption transcript via YouTube's timedtext endpoint.
+//   4. Summarize via Gemini.
+//   5. Compute final read_time_min = summary-read-time + actual-video-length.
 
 import { all } from '../lib/db.js';
 import { summarizeVideo } from '../services/summarizer.js';
@@ -36,9 +35,41 @@ async function recentVideos(channelId, apiKey, sinceIso, max) {
   return data?.items || [];
 }
 
-// Fetch a basic English auto-caption transcript by scraping the player.
-// 1. Hit the watch page; pull the captionTracks JSON from the inline player config.
-// 2. Fetch the chosen track URL; it returns XML; flatten <text>…</text> tags.
+// Batch-fetch contentDetails for a set of video IDs. Returns a map of
+// videoId → ISO-8601 duration string (e.g. "PT15M33S"). One API call per
+// batch of up to 50 IDs; costs 1 quota unit regardless of batch size.
+async function fetchDurations(videoIds, apiKey) {
+  if (!videoIds.length) return {};
+  const p = new URLSearchParams({
+    part: 'contentDetails',
+    id: videoIds.join(','),
+    key: apiKey,
+  });
+  const r = await fetch(`${API}/videos?${p}`);
+  const data = await r.json();
+  const out = {};
+  for (const item of data?.items || []) {
+    out[item.id] = item.contentDetails?.duration;
+  }
+  return out;
+}
+
+// "PT1H22M33S" → 83  (rounds seconds up to a minute floor of 1)
+// "PT45S"      → 1
+// "PT15M"      → 15
+function parseIsoDurationMin(iso) {
+  if (!iso) return 0;
+  const m = String(iso).match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return 0;
+  const hours   = Number(m[1] || 0);
+  const minutes = Number(m[2] || 0);
+  const seconds = Number(m[3] || 0);
+  const total = hours * 60 + minutes + Math.round(seconds / 60);
+  return Math.max(1, total);
+}
+
+// Auto-caption transcript scrape — YouTube blocks server fetches sometimes;
+// fall back to the description when it does.
 async function fetchTranscript(videoId) {
   try {
     const watch = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
@@ -70,23 +101,29 @@ export async function runYoutube(env) {
     try {
       const cid = await resolveChannelId(s.identifier, env.YOUTUBE_API_KEY);
       if (!cid) continue;
-      const since = s.last_polled_at;   // already ISO-ish from datetime('now')
+      const since = s.last_polled_at;
       const vids = await recentVideos(cid, env.YOUTUBE_API_KEY, since, env.YOUTUBE_MAX_PER_CHANNEL);
+
+      // Single batch call to grab durations for every video in this channel
+      // tick, instead of one call per video.
+      const videoIds = vids.map(v => v?.id?.videoId).filter(Boolean);
+      const durations = await fetchDurations(videoIds, env.YOUTUBE_API_KEY);
+
       for (const v of vids) {
         const vid = v?.id?.videoId;
         if (!vid) continue;
-        // Try to grab the auto-caption transcript; YouTube blocks this from
-        // server fetches sometimes. When it fails, fall back to the video
-        // description (always available from the Data API) so Gemini has
-        // SOMETHING to summarize and the TLDR isn't blank.
         const transcript = await fetchTranscript(vid);
         const description = v.snippet?.description || '';
         const textForSummary = transcript || description;
-        const { detailed, tldr, read_time_min } = await summarizeVideo(env, {
+        const { detailed, tldr, read_time_min: summaryMin } = await summarizeVideo(env, {
           title: v.snippet?.title,
           transcript: textForSummary,
           hasTranscript: Boolean(transcript),
         });
+        // Total time to "consume" this post = time to read the summary +
+        // actual video length. Both are minutes, both already floored at 1.
+        const videoMin = parseIsoDurationMin(durations[vid]);
+        const read_time_min = (summaryMin || 0) + videoMin;
         await upsertPost(env, {
           source_id: s.id,
           external_id: vid,
