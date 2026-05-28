@@ -7,8 +7,11 @@ import { summarize } from '../services/summarizer.js';
 import { upsertPost } from './_common.js';
 
 export async function runRss(env) {
+  // RSS worker handles all the RSS-backed source types: explicit 'rss',
+  // 'website' (with discovered feed), and 'podcast' (Spotify/Apple/etc.
+  // all expose RSS for non-exclusive shows).
   const sources = await all(env,
-    `SELECT * FROM sources WHERE type IN ('rss','website') AND active = 1`
+    `SELECT * FROM sources WHERE type IN ('rss','website','podcast') AND active = 1`
   );
   for (const s of sources) {
     const feedUrl = s.feed_url || s.identifier;
@@ -24,8 +27,10 @@ export async function runRss(env) {
       const items = feed.items.slice(0, Number(env.RSS_MAX_ITEMS || 20));
       for (const item of items) {
         if (!item.contentText && !item.title) continue;
-        const { tldr, read_time_min } = await summarize(env, {
-          title: item.title, text: item.contentText, kind: 'article',
+        const kind = s.type === 'podcast' ? 'podcast episode'
+                  : s.type === 'website' ? 'article' : 'article';
+      const { tldr, read_time_min } = await summarize(env, {
+          title: item.title, text: item.contentText, kind,
         });
         await upsertPost(env, {
           source_id:    s.id,

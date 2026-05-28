@@ -10,6 +10,8 @@ const TYPES = [
   { value: 'twitter',    label: 'Twitter / X',    hint: 'Handle only, no @ (e.g. FabrizioRomano)' },
   { value: 'youtube',    label: 'YouTube',        hint: 'Channel @handle (e.g. @YannicKilcher) or channel ID starting with UC…' },
   { value: 'newsletter', label: 'Newsletter',     hint: 'The sender’s email address (e.g. newsletter@stratechery.com)' },
+  { value: 'gmail',      label: 'Gmail label',    hint: 'A Gmail label (e.g. "Reading list"). Any email in your Tsundoku inbox with this label comes in as a post.' },
+  { value: 'podcast',    label: 'Podcast',        hint: 'Paste the show\'s RSS feed URL. Most Spotify/Apple podcasts publish RSS — search "<show name> rss".' },
 ];
 
 export default function Sources() {

@@ -29,37 +29,35 @@ export default function Home() {
   if (error)   return <div className="text-wood text-sm">Couldn’t load domains: {error}</div>;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-      {domains.map(d => (
-        <Link
-          key={d.id}
-          to={`/d/${d.slug}`}
-          className="group card relative bg-elev border border-border rounded-xl p-5 sm:p-6 shadow-soft hover:border-wood/50 hover:-translate-y-0.5 transition"
-        >
-          <div className="flex items-start gap-4">
-            <div className="text-wood shrink-0">
-              <DomainIcon name={d.icon} className="w-7 h-7 sm:w-8 sm:h-8" />
+    <div>
+      {/* Square cards, 3 across on phone, 4 across on desktop. */}
+      <div className="grid grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        {domains.map(d => (
+          <Link
+            key={d.id}
+            to={`/d/${d.slug}`}
+            className="group relative bg-elev border border-border rounded-xl aspect-square p-3 sm:p-4 shadow-soft hover:border-wood/50 hover:-translate-y-0.5 transition flex flex-col"
+          >
+            <div className="text-wood">
+              <DomainIcon name={d.icon} className="w-6 h-6 sm:w-7 sm:h-7" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{d.name}</h2>
-                {d.unread_count > 0 && (
-                  <span className="shrink-0 text-xs font-bold text-bg bg-wood rounded-full px-2 py-0.5 min-w-[1.5rem] text-center">
-                    {d.unread_count}
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 text-sm text-muted">
-                {d.unread_count > 0
-                  ? `${d.unread_count} new · ${d.total_count} total`
-                  : d.total_count > 0
-                  ? `${d.total_count} read`
-                  : 'No content yet'}
+            <div className="flex-1" />
+            <div>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight leading-tight truncate">{d.name}</h2>
+              {/* v1.1 spec: show "X unread" only when there's something unread.
+                  Empty when all are read — no "X read", no "N total". */}
+              <div className="text-xs sm:text-sm text-muted mt-0.5 min-h-[1.1em]">
+                {d.unread_count > 0 ? `${d.unread_count} unread` : ''}
               </div>
             </div>
-          </div>
-        </Link>
-      ))}
+            {d.unread_count > 0 && (
+              <span className="absolute top-2 right-2 text-[10px] sm:text-xs font-bold text-bg bg-wood rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">
+                {d.unread_count}
+              </span>
+            )}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 //
 // Two entry points:
 //   fetch()    → REST API (/api/*)
-//   scheduled()→ cron-triggered ingestion (RSS, Twitter, YouTube, Gmail)
+//   scheduled()→ cron-triggered ingestion + cleanup
 //
 // D1 is bound as env.DB. Secrets are bound as env.<name> (see wrangler.toml).
 
@@ -14,10 +14,11 @@ import { listHighlights, createHighlight, deleteHighlight } from './routes/highl
 import { triggerIngest, status }           from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 
-import { runRss }       from './ingest/rss.js';
-import { runYoutube }   from './ingest/youtube.js';
-import { runTwitter }   from './ingest/twitter.js';
+import { runRss }         from './ingest/rss.js';
+import { runYoutube }     from './ingest/youtube.js';
+import { runTwitter }     from './ingest/twitter.js';
 import { runNewsletters } from './ingest/newsletter.js';
+import { runCleanup }     from './ingest/cleanup.js';
 
 const router = new Router()
   .get('/api/health',                    () => json({ ok: true, app: 'tsundoku' }))
@@ -57,6 +58,7 @@ export default {
       if (cron === '*/15 * * * *') ctx.waitUntil(runYoutube(env));
       if (cron === '*/20 * * * *') ctx.waitUntil(runTwitter(env));
       if (cron === '*/10 * * * *') ctx.waitUntil(runNewsletters(env));
+      if (cron === '0 3 * * *')    ctx.waitUntil(runCleanup(env));
     } catch (e) {
       console.error('[cron] dispatch failed', e);
     }

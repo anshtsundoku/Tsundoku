@@ -75,6 +75,35 @@ export const DomainIcon = ({ name, className = 'w-6 h-6' }) => {
           <path d="M21 7.5l-9-5-9 5v9l9 5 9-5z M3 7.5l9 5 9-5 M12 22V12" />
         </svg>
       );
+    case 'circle':   // General — pure focal dot
+      return (
+        <svg viewBox="0 0 24 24" {...base} className={className}>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'globe':    // Geopolitics — world view
+      return (
+        <svg viewBox="0 0 24 24" {...base} className={className}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18" />
+        </svg>
+      );
+    case 'flag':     // India — a fluttering flag
+      return (
+        <svg viewBox="0 0 24 24" {...base} className={className}>
+          <path d="M5 3v18" />
+          <path d="M5 4 Q12 2 19 4 Q12 8 5 6 Z" />
+        </svg>
+      );
+    case 'dots':     // Miscellaneous — three dots
+      return (
+        <svg viewBox="0 0 24 24" {...base} className={className}>
+          <circle cx="6"  cy="12" r="1.8" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
+          <circle cx="18" cy="12" r="1.8" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return (
         <svg viewBox="0 0 24 24" {...base} className={className}>

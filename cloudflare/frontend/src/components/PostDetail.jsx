@@ -49,10 +49,17 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
   return (
     <div className="fixed inset-0 z-30 bg-bg/70 backdrop-blur-sm flex justify-end" onClick={onClose}>
       <div
-        className="w-full max-w-2xl h-full bg-elev border-l border-border overflow-y-auto"
+        className="w-full lg:max-w-4xl h-full bg-elev border-l border-border overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 bg-elev/95 backdrop-blur border-b border-border px-5 py-3 flex items-center gap-2">
+        <div
+          className="sticky top-0 z-10 bg-elev/95 backdrop-blur border-b border-border flex items-center gap-2 px-5 py-3"
+          style={{
+            paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+            paddingLeft:  'max(1.25rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1.25rem, env(safe-area-inset-right))',
+          }}
+        >
           <button onClick={onClose} className="text-sm text-muted hover:text-ink">← Back</button>
           <div className="flex-1" />
           {!post.is_read && (

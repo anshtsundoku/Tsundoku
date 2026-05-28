@@ -11,7 +11,10 @@ import { GearIcon, HomeIcon } from './components/Icons.jsx';
 // for "Tsundoku" (the unread book waiting for you). Uses currentColor so
 // it inherits text-wood / text-ink.
 export function Brand({ size = 'md' }) {
-  const cls = size === 'lg' ? 'w-7 h-7' : size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
+  const cls =
+    size === 'xl' ? 'w-9 h-9'  :
+    size === 'lg' ? 'w-7 h-7'  :
+    size === 'sm' ? 'w-5 h-5'  : 'w-6 h-6';
   return (
     <svg viewBox="0 0 32 32" className={cls} fill="none" stroke="currentColor"
          strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
@@ -42,9 +45,9 @@ export default function App() {
             paddingRight: 'max(1rem, env(safe-area-inset-right))',
           }}
         >
-          <Link to="/" className="font-bold tracking-tight flex items-center gap-2.5">
-            <span className="text-wood"><Brand size="md" /></span>
-            <span className="text-base sm:text-lg">Tsundoku</span>
+          <Link to="/" className="font-bold tracking-tight flex items-center gap-3">
+            <span className="text-wood"><Brand size="lg" /></span>
+            <span className="text-xl sm:text-2xl">Tsundoku</span>
           </Link>
           <div className="flex-1" />
           {loc.pathname !== '/' && (

@@ -10,13 +10,14 @@ binding = "DB"
 database_name = "tsundoku"
 database_id = "7546ad22-0771-438f-a443-af00a0d7e7f6"
 
-# Cron triggers for the four ingestion pipelines.
+# Cron triggers for ingestion pipelines + daily cleanup.
 [triggers]
 crons = [
-  "*/5 * * * *",     # RSS + websites
+  "*/5 * * * *",     # RSS + websites + podcasts
   "*/20 * * * *",    # Twitter
   "*/15 * * * *",    # YouTube
-  "*/10 * * * *",    # Gmail newsletters
+  "*/10 * * * *",    # Gmail newsletters + Gmail labels
+  "0 3 * * *",       # Daily 3am: clean up read-and-aged posts (>7 days)
 ]
 
 [vars]

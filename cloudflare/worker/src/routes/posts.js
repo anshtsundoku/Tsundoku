@@ -47,6 +47,16 @@ export async function patchPost(req, { env, params }) {
       sets.push(`${key} = ?`);
     }
   }
+  // Stamp read_at when is_read transitions to true (so the 7-day cleanup
+  // pipeline knows when the clock started). Clear it when is_read flips false.
+  if (typeof body.is_read === 'boolean') {
+    if (body.is_read) {
+      args.push(new Date().toISOString());
+      sets.push(`read_at = ?`);
+    } else {
+      sets.push(`read_at = NULL`);
+    }
+  }
   if (sets.length === 0) return json({ error: 'nothing to update' }, 400);
   args.push(params.id);
   const p = await first(env,

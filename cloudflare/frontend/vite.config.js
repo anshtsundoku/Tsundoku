@@ -17,7 +17,7 @@ export default defineConfig({
         short_name: 'Tsundoku',
         description: 'Quiet feed of long-form reading across the few sources you trust.',
         theme_color: '#1A1614',
-        background_color: '#F5F3EE',
+        background_color: '#1A1614',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
