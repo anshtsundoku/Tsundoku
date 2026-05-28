@@ -4,6 +4,7 @@ import Home from './pages/Home.jsx';
 import Domain from './pages/Domain.jsx';
 import Sources from './pages/Sources.jsx';
 import Settings from './pages/Settings.jsx';
+import TypeFeed from './pages/TypeFeed.jsx';
 import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
 import { GearIcon, HomeIcon } from './components/Icons.jsx';
 
@@ -75,6 +76,10 @@ export default function App() {
               feed (not all the way to home) and the page fills the screen
               on desktop. */}
           <Route path="/d/:slug/p/:postId" element={<Domain />} />
+          {/* Cross-domain feed filtered by a single source type
+              (from the "New Reads / Watches" pills on Home). */}
+          <Route path="/t/:type"           element={<TypeFeed />} />
+          <Route path="/t/:type/p/:postId" element={<TypeFeed />} />
           <Route path="/sources"           element={<Sources />} />
           <Route path="/settings"          element={<Settings />} />
         </Routes>

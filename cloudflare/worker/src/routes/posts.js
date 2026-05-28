@@ -16,16 +16,24 @@ export async function getPost(_req, { env, params }) {
 
 export async function listPosts(_req, { env, url }) {
   const domain = url.searchParams.get('domain');
+  const type   = url.searchParams.get('type');     // optional — used by TypeFeed
   const filter = url.searchParams.get('filter') || 'unread';
   const cursor = url.searchParams.get('cursor');
   const limit  = Math.min(Number(url.searchParams.get('limit') || 50), 100);
-  if (!domain) return json({ error: 'domain required' }, 400);
+  if (!domain && !type) return json({ error: 'domain or type required' }, 400);
 
-  const params = [domain];
+  const params = [];
+  const wheres = [];
+  if (domain) { params.push(domain); wheres.push(`d.slug = ?`); }
+  if (type)   { params.push(type);   wheres.push(`s.type = ?`); }
+
+  // Dismissed never shows. Filter selects which other state.
   const filterSql = filter === 'read'
     ? 'AND p.is_read = 1 AND p.is_dismissed = 0'
     : filter === 'bookmark'
     ? 'AND p.is_bookmarked = 1 AND p.is_dismissed = 0'
+    : filter === 'weekend'
+    ? 'AND p.is_weekend = 1 AND p.is_dismissed = 0'
     : 'AND p.is_read = 0 AND p.is_dismissed = 0';
 
   let cursorSql = '';
@@ -41,7 +49,7 @@ export async function listPosts(_req, { env, url }) {
       FROM posts p
       JOIN sources s ON s.id = p.source_id
       JOIN domains d ON d.id = p.domain_id
-     WHERE d.slug = ?
+     WHERE ${wheres.join(' AND ')}
        ${filterSql}
        ${cursorSql}
      ORDER BY COALESCE(p.published_at, p.ingested_at) DESC
@@ -54,14 +62,13 @@ export async function patchPost(req, { env, params }) {
   const body = await req.json();
   const sets = [];
   const args = [];
-  for (const key of ['is_read', 'is_bookmarked', 'is_dismissed']) {
+  for (const key of ['is_read', 'is_bookmarked', 'is_dismissed', 'is_weekend']) {
     if (typeof body[key] === 'boolean') {
       args.push(body[key] ? 1 : 0);
       sets.push(`${key} = ?`);
     }
   }
-  // Stamp read_at when is_read transitions to true (so the 7-day cleanup
-  // pipeline knows when the clock started). Clear it when is_read flips false.
+  // Stamp read_at when is_read becomes true; clear on un-read.
   if (typeof body.is_read === 'boolean') {
     if (body.is_read) {
       args.push(new Date().toISOString());
@@ -77,4 +84,23 @@ export async function patchPost(req, { env, params }) {
     args
   );
   return json(p);
+}
+
+// GET /api/posts/source-counts → [{ type, unread_count }]
+// Powers the "New Reads/Watches" row on Home.
+export async function sourceCounts(_req, { env }) {
+  // Defensive: if is_weekend column is missing, the query still works because
+  // we don't reference it here. The unread count excludes weekend? No — a
+  // post can be weekend AND unread; we still surface it.
+  const rows = await all(env, `
+    SELECT s.type AS type,
+           COALESCE(SUM(CASE WHEN p.is_read = 0 AND p.is_dismissed = 0 THEN 1 ELSE 0 END), 0) AS unread_count,
+           COALESCE(SUM(CASE WHEN p.is_dismissed = 0 THEN 1 ELSE 0 END), 0) AS total_count
+      FROM sources s
+      LEFT JOIN posts p ON p.source_id = s.id
+     WHERE s.active = 1
+     GROUP BY s.type
+     ORDER BY s.type
+  `);
+  return json(rows);
 }

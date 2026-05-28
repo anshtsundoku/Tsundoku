@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { typeLabel } from '../lib/labels.js';
 import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
 
-// User-facing source types. RSS discovery happens automatically under
-// "Website / blog", so we don't expose a raw "RSS feed" option.
+// User-facing source types with v1.3 labels. Backend values are unchanged.
+// (Gmail label removed from the picker — existing 'gmail' sources still work,
+// they just can't be created from this UI.)
 const TYPES = [
-  { value: 'website',    label: 'Website / blog', hint: 'Paste the homepage URL (e.g. https://stratechery.com). We’ll auto-find its RSS feed.' },
-  { value: 'twitter',    label: 'Twitter / X',    hint: 'Handle only, no @ (e.g. FabrizioRomano)' },
-  { value: 'youtube',    label: 'YouTube',        hint: 'Channel @handle (e.g. @YannicKilcher) or channel ID starting with UC…' },
-  { value: 'newsletter', label: 'Newsletter',     hint: 'The sender’s email address (e.g. newsletter@stratechery.com)' },
-  { value: 'gmail',      label: 'Gmail label',    hint: 'A Gmail label (e.g. "Reading list"). Any email in your Tsundoku inbox with this label comes in as a post.' },
-  { value: 'podcast',    label: 'Podcast',        hint: 'Paste the show\'s RSS feed URL. Most Spotify/Apple podcasts publish RSS — search "<show name> rss".' },
+  { value: 'website',    label: 'Blog',       hint: 'Paste the homepage URL (e.g. https://stratechery.com). We’ll auto-find its RSS feed.' },
+  { value: 'twitter',    label: 'X',          hint: 'Handle only, no @ (e.g. FabrizioRomano)' },
+  { value: 'youtube',    label: 'YT',         hint: 'Channel @handle (e.g. @YannicKilcher) or channel ID starting with UC…' },
+  { value: 'newsletter', label: 'Newsletter', hint: 'The sender’s email address (e.g. newsletter@stratechery.com)' },
+  { value: 'podcast',    label: 'Podcast',    hint: 'Paste the podcast RSS feed URL. Most non-Spotify-exclusive shows have one.' },
 ];
 
 export default function Sources() {
@@ -21,6 +22,8 @@ export default function Sources() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [editing, setEditing] = useState(null);   // source id currently being edited
+  const [editForm, setEditForm] = useState(null);
 
   const load = async () => {
     try {
@@ -53,6 +56,40 @@ export default function Sources() {
         setNotice({ kind: 'ok', text: 'Source added.' });
       }
       setForm({ type: form.type, identifier: '', display_name: '', domain_slug: form.domain_slug });
+      await load();
+    } catch (err) {
+      setNotice({ kind: 'warn', text: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEdit = (s) => {
+    setEditing(s.id);
+    setEditForm({
+      identifier:   s.identifier,
+      display_name: s.display_name || '',
+      domain_slug:  s.domain_slug,
+      active:       Boolean(s.active),
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setEditForm(null);
+  };
+
+  const saveEdit = async (id) => {
+    if (!editForm) return;
+    setSaving(true);
+    try {
+      const result = await api.patchSource(id, editForm);
+      if (result?.discovery_warning) {
+        setNotice({ kind: 'warn', text: result.discovery_warning });
+      } else {
+        setNotice({ kind: 'ok', text: 'Source updated.' });
+      }
+      cancelEdit();
       await load();
     } catch (err) {
       setNotice({ kind: 'warn', text: err.message });
@@ -157,13 +194,78 @@ export default function Sources() {
               <div className="text-sm text-muted italic">No sources yet.</div>
             ) : (
               <ul className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-elev">
-                {d.sources.map(s => (
+                {d.sources.map(s => editing === s.id ? (
+                  <li key={s.id} className="px-4 py-3">
+                    <div className="grid sm:grid-cols-2 gap-2 mb-3">
+                      <label className="text-xs">
+                        <div className="text-muted uppercase tracking-wider mb-1">Domain</div>
+                        <select
+                          className="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-ink text-sm"
+                          value={editForm.domain_slug}
+                          onChange={e => setEditForm({ ...editForm, domain_slug: e.target.value })}
+                        >
+                          {domains.map(dx => <option key={dx.id} value={dx.slug}>{dx.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <div className="text-muted uppercase tracking-wider mb-1">Active</div>
+                        <div className="flex items-center h-9">
+                          <input
+                            type="checkbox"
+                            checked={editForm.active}
+                            onChange={e => setEditForm({ ...editForm, active: e.target.checked })}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-muted">{editForm.active ? 'On' : 'Paused'}</span>
+                        </div>
+                      </label>
+                      <label className="text-xs sm:col-span-2">
+                        <div className="text-muted uppercase tracking-wider mb-1">Identifier</div>
+                        <input
+                          className="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-ink text-sm"
+                          value={editForm.identifier}
+                          onChange={e => setEditForm({ ...editForm, identifier: e.target.value })}
+                        />
+                      </label>
+                      <label className="text-xs sm:col-span-2">
+                        <div className="text-muted uppercase tracking-wider mb-1">Display name</div>
+                        <input
+                          className="w-full bg-bg border border-border rounded-md px-2 py-1.5 text-ink text-sm"
+                          value={editForm.display_name}
+                          onChange={e => setEditForm({ ...editForm, display_name: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveEdit(s.id)}
+                        disabled={saving}
+                        className="bg-wood text-bg text-xs font-bold rounded-md px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50"
+                      >
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button onClick={cancelEdit} className="text-xs text-muted hover:text-ink px-3 py-1.5">
+                        Cancel
+                      </button>
+                    </div>
+                  </li>
+                ) : (
                   <li key={s.id} className="px-4 py-3 flex items-center gap-3">
-                    <span className="text-xs font-bold text-wood uppercase tracking-wider w-20 shrink-0">{s.type}</span>
+                    <span className="text-xs font-bold text-wood uppercase tracking-wider w-20 shrink-0">{typeLabel(s.type)}</span>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{s.display_name || s.identifier}</div>
-                      <div className="text-xs text-muted truncate">{s.identifier}</div>
+                      <div className="text-xs text-muted truncate">
+                        {s.identifier}
+                        {!s.active && <span className="ml-2 text-wood">· paused</span>}
+                      </div>
                     </div>
+                    <button
+                      onClick={() => startEdit(s)}
+                      className="text-xs text-muted hover:text-ink px-2 py-1"
+                      aria-label="Edit"
+                    >
+                      Edit
+                    </button>
                     <button onClick={() => remove(s.id)} className="text-muted hover:text-wood" aria-label="Delete">
                       <TrashIcon className="w-4 h-4" />
                     </button>

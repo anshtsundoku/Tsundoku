@@ -46,6 +46,14 @@ export const ExternalIcon = (p) => (
 export const XIcon = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M18 6L6 18M6 6l12 12" /></svg>
 );
+export const WeekendIcon = ({ filled, ...p }) => (
+  <svg viewBox="0 0 24 24" {...base} fill={filled ? 'currentColor' : 'none'} {...p}>
+    <rect x="3.5" y="5" width="17" height="16" rx="2" />
+    <line x1="3.5" y1="10" x2="20.5" y2="10" />
+    <line x1="8"  y1="3" x2="8"  y2="7" />
+    <line x1="16" y1="3" x2="16" y2="7" />
+  </svg>
+);
 
 // Domain icons. Kept simple — only <circle>, <rect>, <line>, and <path L>
 // commands. No <ellipse>, no Q/A curves: those have rendered inconsistently

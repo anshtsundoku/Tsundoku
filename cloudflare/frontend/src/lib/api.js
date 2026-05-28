@@ -26,16 +26,21 @@ export const api = {
 
   listSources: (domainSlug) => request(`/sources${domainSlug ? `?domain=${domainSlug}` : ''}`),
   createSource: (data) => request('/sources', { method: 'POST', body: JSON.stringify(data) }),
+  patchSource:  (id, data) => request(`/sources/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSource: (id) => request(`/sources/${id}`, { method: 'DELETE' }),
 
-  listPosts: (domainSlug, filter = 'unread', cursor) => {
-    const q = new URLSearchParams({ domain: domainSlug, filter });
+  listPosts: ({ domain, type, filter = 'unread', cursor } = {}) => {
+    const q = new URLSearchParams({ filter });
+    if (domain) q.set('domain', domain);
+    if (type)   q.set('type', type);
     if (cursor) q.set('cursor', cursor);
     return request(`/posts?${q}`);
   },
   getPost: (id) => request(`/posts/${id}`),
   patchPost: (id, data) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   dismissPost: (id) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify({ is_dismissed: true }) }),
+  // Unread count per source type — for the New Reads/Watches row on Home.
+  sourceCounts: () => request('/posts/source-counts'),
 
   listHighlights: (params = {}) => {
     const q = new URLSearchParams(params);

@@ -75,3 +75,60 @@ export async function deleteSource(request, { env, params }) {
   await run(env, `DELETE FROM sources WHERE id = ? AND user_id = ?`, [params.id, u.id]);
   return new Response(null, { status: 204 });
 }
+
+// PATCH /api/sources/:id — edit an existing source.
+// Allowed fields: display_name, identifier, domain_slug, active (boolean).
+// If identifier or domain_slug changes for a 'website' source, we re-run
+// feed discovery (silent fail — keeps the old feed_url if discovery fails).
+export async function patchSource(request, { env, params }) {
+  const u = await currentUser(env, request);
+  const body = await request.json();
+
+  // Load the existing source so we can compare what's changing.
+  const existing = await first(env,
+    `SELECT * FROM sources WHERE id = ? AND user_id = ?`, [params.id, u.id]);
+  if (!existing) return json({ error: 'not found' }, 404);
+
+  // Domain re-pointing.
+  let newDomainId = existing.domain_id;
+  if (body.domain_slug && body.domain_slug !== null) {
+    const d = await first(env,
+      `SELECT id FROM domains WHERE slug = ? AND user_id = ? LIMIT 1`,
+      [body.domain_slug, u.id]);
+    if (!d) return json({ error: 'domain not found' }, 404);
+    newDomainId = d.id;
+  }
+
+  // Identifier change — for 'website' / 'podcast', re-discover feed.
+  let newIdentifier = body.identifier ?? existing.identifier;
+  let newFeedUrl = existing.feed_url;
+  let discovery_warning = null;
+  if (body.identifier && body.identifier !== existing.identifier) {
+    if (existing.type === 'website' || existing.type === 'podcast') {
+      const { discoverFeed } = await import('../services/feedDiscovery.js');
+      const found = await discoverFeed(body.identifier);
+      if (found) newFeedUrl = found;
+      else discovery_warning = "Couldn't find an RSS feed at the new URL. Old feed_url kept — you can edit it manually if you know the feed URL.";
+    } else if (existing.type === 'rss') {
+      newFeedUrl = body.identifier;
+    }
+  }
+
+  const newDisplayName = body.display_name ?? existing.display_name;
+  const newActive = typeof body.active === 'boolean'
+    ? (body.active ? 1 : 0)
+    : existing.active;
+
+  const updated = await first(env, `
+    UPDATE sources
+       SET display_name = ?,
+           identifier   = ?,
+           feed_url     = ?,
+           domain_id    = ?,
+           active       = ?
+     WHERE id = ? AND user_id = ?
+    RETURNING *
+  `, [newDisplayName, newIdentifier, newFeedUrl, newDomainId, newActive, params.id, u.id]);
+
+  return json({ ...updated, discovery_warning });
+}

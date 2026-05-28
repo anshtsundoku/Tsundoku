@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
-import { BookmarkIcon, CheckIcon, HighlightIcon, ExternalIcon } from './Icons.jsx';
+import { BookmarkIcon, CheckIcon, HighlightIcon, ExternalIcon, WeekendIcon } from './Icons.jsx';
 
 // Full-page post detail. Rendered when the route is /d/:slug/p/:postId.
 // On mobile this fills the screen and the OS back gesture returns to the
 // domain feed naturally. On desktop the article body is centered for
 // comfortable reading width while header/footer span full viewport.
-export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark }) {
+export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark, onToggleWeekend }) {
   const [highlights, setHighlights] = useState([]);
   const [selection, setSelection] = useState('');
   const bodyRef = useRef(null);
@@ -65,6 +65,16 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
           aria-label="Toggle bookmark"
         >
           <BookmarkIcon filled={post.is_bookmarked} className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={onToggleWeekend}
+          className={`text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${
+            post.is_weekend ? 'border-wood text-wood bg-wood/10' : 'border-border text-muted hover:text-ink'
+          }`}
+          aria-label="Save for the weekend"
+          title="Save for the weekend"
+        >
+          <WeekendIcon filled={post.is_weekend} className="w-3.5 h-3.5" />
         </button>
         {post.url && (
           <a href={post.url} target="_blank" rel="noreferrer" className="text-xs px-2.5 py-1 rounded-md border border-border text-muted hover:text-ink flex items-center gap-1.5">

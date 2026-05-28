@@ -9,12 +9,10 @@ const TABS = [
   { key: 'unread',   label: 'Unread' },
   { key: 'read',     label: 'Read' },
   { key: 'bookmark', label: 'Bookmarked' },
+  { key: 'weekend',  label: 'Weekend' },
 ];
 
 export default function Domain() {
-  // `postId` will be defined when the URL is /d/:slug/p/:postId — that's how
-  // we make post detail a real route entry (so iOS swipe-back returns here
-  // instead of going all the way to home).
   const { slug, postId } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState('unread');
@@ -23,7 +21,7 @@ export default function Domain() {
   const [domain, setDomain] = useState(null);
 
   const load = async () => {
-    const list = await api.listPosts(slug, tab);
+    const list = await api.listPosts({ domain: slug, filter: tab });
     setPosts(list);
     setLoading(false);
   };
@@ -33,33 +31,36 @@ export default function Domain() {
   }, [slug]);
 
   useEffect(() => { setLoading(true); load(); }, [slug, tab]);
-
-  // Re-poll every 15s while tab is visible.
   usePoll(load, 15000, [slug, tab]);
 
-  // Find the open post (when postId is in the URL). Fall back to fetching it
-  // directly if it's not in the current tab's loaded list (e.g. user landed
-  // directly on the URL).
+  // Direct fetch fallback when arriving at /d/:slug/p/:postId fresh.
   const [postDirect, setPostDirect] = useState(null);
   useEffect(() => {
     if (!postId) { setPostDirect(null); return; }
     const inList = posts.find(p => String(p.id) === String(postId));
     if (inList) { setPostDirect(null); return; }
-    // Not in the current list — fetch directly so we still render it.
     api.getPost(postId).then(setPostDirect).catch(() => setPostDirect(null));
   }, [postId, posts]);
   const openPost = postId
     ? (posts.find(p => String(p.id) === String(postId)) || postDirect)
     : null;
 
+  const updateLocal = (id, patch) =>
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+
   const onMarkRead = async (post) => {
+    updateLocal(post.id, { is_read: true });
     await api.patchPost(post.id, { is_read: true });
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_read: true } : p));
   };
   const onToggleBookmark = async (post) => {
     const next = !post.is_bookmarked;
+    updateLocal(post.id, { is_bookmarked: next });
     await api.patchPost(post.id, { is_bookmarked: next });
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_bookmarked: next } : p));
+  };
+  const onToggleWeekend = async (post) => {
+    const next = !post.is_weekend;
+    updateLocal(post.id, { is_weekend: next });
+    await api.patchPost(post.id, { is_weekend: next });
   };
   const onDismiss = async (post) => {
     setPosts(prev => prev.filter(p => p.id !== post.id));
@@ -67,25 +68,38 @@ export default function Domain() {
     catch (e) { console.warn('dismiss failed, reloading', e); load(); }
   };
 
-  // ---- Post detail view (full-screen on every viewport) ----
+  // ---- Post detail (full-screen route) ----
   if (postId) {
     if (!openPost) return <div className="text-muted">Loading…</div>;
     return (
       <PostDetail
         post={openPost}
         onClose={() => navigate(`/d/${slug}`)}
-        onMarkRead={() => { onMarkRead(openPost); }}
+        onMarkRead={() => onMarkRead(openPost)}
         onToggleBookmark={() => onToggleBookmark(openPost)}
+        onToggleWeekend={() => onToggleWeekend(openPost)}
       />
     );
   }
 
-  // ---- Feed view ----
+  // ---- Feed ----
+  // Server already filters by `filter`, but as posts get mutated locally
+  // (mark read, toggle bookmark, etc.) we hide things that fell out of the
+  // current tab criteria.
   const visiblePosts = tab === 'unread'
     ? posts.filter(p => !p.is_read && !p.is_dismissed)
     : tab === 'read'
     ? posts.filter(p => p.is_read && !p.is_dismissed)
-    : posts.filter(p => p.is_bookmarked && !p.is_dismissed);
+    : tab === 'bookmark'
+    ? posts.filter(p => p.is_bookmarked && !p.is_dismissed)
+    : posts.filter(p => p.is_weekend && !p.is_dismissed);
+
+  const emptyMsg = {
+    unread:   'You’re all caught up.',
+    read:     'Nothing read yet.',
+    bookmark: 'No bookmarks here yet.',
+    weekend:  'Nothing saved for the weekend yet.',
+  }[tab];
 
   return (
     <div>
@@ -94,12 +108,12 @@ export default function Domain() {
         <h1 className="mt-2 text-2xl font-bold tracking-tight">{domain?.name || slug}</h1>
       </div>
 
-      <div className="flex gap-1 border-b border-border mb-5">
+      <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition ${
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition shrink-0 ${
               tab === t.key ? 'border-wood text-ink' : 'border-transparent text-muted hover:text-ink'
             }`}
           >
@@ -111,9 +125,7 @@ export default function Domain() {
       {loading ? (
         <div className="text-muted">Loading…</div>
       ) : visiblePosts.length === 0 ? (
-        <div className="text-muted text-center py-12">
-          {tab === 'unread' ? 'You’re all caught up.' : tab === 'read' ? 'Nothing read yet.' : 'No bookmarks here yet.'}
-        </div>
+        <div className="text-muted text-center py-12">{emptyMsg}</div>
       ) : (
         <div className="space-y-3">
           {visiblePosts.map(post => (
@@ -123,6 +135,7 @@ export default function Domain() {
               onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
               onMarkRead={() => onMarkRead(post)}
               onToggleBookmark={() => onToggleBookmark(post)}
+              onToggleWeekend={() => onToggleWeekend(post)}
               onDismiss={() => onDismiss(post)}
             />
           ))}

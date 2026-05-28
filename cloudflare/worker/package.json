@@ -13,6 +13,7 @@
     "seed:local":     "wrangler d1 execute tsundoku --local  --file=migrations/0002_seed.sql",
     "migrate:prefs":  "wrangler d1 execute tsundoku --remote --file=migrations/0003_prefs.sql",
     "migrate:v1_1":   "wrangler d1 execute tsundoku --remote --file=migrations/0004_v1_1.sql",
+    "migrate:v1_3":   "wrangler d1 execute tsundoku --remote --file=migrations/0005_v1_3.sql",
     "backup:remote":  "wrangler d1 export tsundoku --remote --output=backups/tsundoku-$(date +%Y%m%d-%H%M%S).sql"
   },
   "devDependencies": {

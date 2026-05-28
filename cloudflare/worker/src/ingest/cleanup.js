@@ -1,37 +1,52 @@
 // Daily cleanup pipeline.
 //
-// Source-content rules (from v1.1 spec):
-//   * Read content auto-deletes 7 days after being marked read,
-//     UNLESS bookmarked.
-//   * Bookmarked content stays forever (until unbookmarked).
-//   * Dismissed content also stays out of all feeds (handled at list time).
+// Rules:
+//   * Read posts → deleted 7 days after read_at, UNLESS bookmarked or
+//     in Weekend.
+//   * Bookmarked posts stay forever.
+//   * Weekend posts stay forever.
+//   * Dismissed posts stay (we keep them to prevent re-ingest of the same
+//     external_id from the feed).
 //
-// We delete rather than soft-delete because D1 free tier has a 5GB cap and
-// per-row state we no longer surface costs storage + makes future queries
-// slower for no reason. The user can always re-bookmark before the 7-day
-// window if they want to keep something.
+// Defensive against the read_at / is_weekend columns being missing.
 
 import { run } from '../lib/db.js';
 
 export async function runCleanup(env) {
-  // is_read = 1 AND is_bookmarked = 0 AND read_at older than 7 days.
-  // We don't touch dismissed posts here — those are already invisible and
-  // deleting them is a separate concern (we keep them so the same external_id
-  // doesn't re-ingest from a feed).
   try {
     const result = await run(env, `
       DELETE FROM posts
        WHERE is_read = 1
          AND is_bookmarked = 0
+         AND is_weekend = 0
          AND read_at IS NOT NULL
          AND read_at < datetime('now', '-7 days')
     `);
     console.log(`[cleanup] swept ${result?.meta?.changes ?? '?'} read+aged posts`);
   } catch (e) {
-    // If the read_at column doesn't exist yet (migration 0004 not run), skip
-    // silently — the app still works.
+    // Fall back: skip the weekend filter if column missing
+    if (/no such column.*is_weekend/i.test(e.message || '')) {
+      console.warn('[cleanup] is_weekend column missing — running without weekend safeguard');
+      try {
+        const result = await run(env, `
+          DELETE FROM posts
+           WHERE is_read = 1
+             AND is_bookmarked = 0
+             AND read_at IS NOT NULL
+             AND read_at < datetime('now', '-7 days')
+        `);
+        console.log(`[cleanup] swept ${result?.meta?.changes ?? '?'} posts (no weekend filter)`);
+      } catch (e2) {
+        if (/no such column.*read_at/i.test(e2.message || '')) {
+          console.warn('[cleanup] read_at column missing too — run migrate:v1_1');
+          return;
+        }
+        throw e2;
+      }
+      return;
+    }
     if (/no such column.*read_at/i.test(e.message || '')) {
-      console.warn('[cleanup] read_at column missing — run migrate:v1_1 to enable 7-day expiry');
+      console.warn('[cleanup] read_at column missing — run migrate:v1_1');
       return;
     }
     throw e;

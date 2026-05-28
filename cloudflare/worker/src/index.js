@@ -8,8 +8,8 @@
 
 import { Router, json, handleOptions } from './lib/router.js';
 import { listDomains, createDomain }       from './routes/domains.js';
-import { listSources, createSource, deleteSource } from './routes/sources.js';
-import { listPosts, getPost, patchPost }   from './routes/posts.js';
+import { listSources, createSource, deleteSource, patchSource } from './routes/sources.js';
+import { listPosts, getPost, patchPost, sourceCounts } from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
 import { triggerIngest, status, regenerateTldrs } from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
@@ -28,9 +28,11 @@ const router = new Router()
   // Sources
   .get('/api/sources',                   listSources)
   .post('/api/sources',                  createSource)
+  .patch('/api/sources/:id',             patchSource)
   .delete('/api/sources/:id',            deleteSource)
   // Posts
   .get('/api/posts',                     listPosts)
+  .get('/api/posts/source-counts',       sourceCounts)
   .get('/api/posts/:id',                 getPost)
   .patch('/api/posts/:id',               patchPost)
   // Highlights
