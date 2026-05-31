@@ -7,7 +7,7 @@
 
 import { json } from '../lib/router.js';
 import { all, first, run } from '../lib/db.js';
-import { summarize } from '../services/summarizer.js';
+import { summarize, geminiHealth } from '../services/summarizer.js';
 import { stripHtml } from '../lib/textClean.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
 import { runRss }         from '../ingest/rss.js';
@@ -110,6 +110,14 @@ export async function regenerateTldrs(req, { env, ctx }) {
 
 async function safeJson(req) {
   try { return await req.json(); } catch { return {}; }
+}
+
+// GET /api/admin/gemini-test — pings Gemini, reports which model responded
+// or why it failed. Use this to debug "why are my TLDRs missing?"
+export async function geminiTest(req, { env }) {
+  if (!checkAuth(req, env)) return json({ error: 'unauthorized' }, 401);
+  const r = await geminiHealth(env);
+  return json(r);
 }
 
 // GET /api/admin/status → quick health view

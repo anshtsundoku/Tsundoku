@@ -77,6 +77,33 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
           <WeekendIcon filled={post.is_weekend} className="w-3.5 h-3.5" />
         </button>
         {post.url && (
+          <button
+            onClick={async () => {
+              // navigator.share opens iOS's native sheet — "Copy Link"
+              // there copies post.url (the source article), not the Tsundoku
+              // route. Falls back to clipboard write on browsers without
+              // share API.
+              const payload = { title: post.title || 'Tsundoku', text: post.tldr || '', url: post.url };
+              try {
+                if (navigator.share && navigator.canShare?.(payload) !== false) {
+                  await navigator.share(payload);
+                  return;
+                }
+              } catch (e) {
+                if (e.name === 'AbortError') return;
+              }
+              try {
+                await navigator.clipboard.writeText(post.url);
+                alert('link copied');
+              } catch { /* swallow */ }
+            }}
+            className="text-xs px-2.5 py-1 rounded-md border border-border text-muted hover:text-ink flex items-center gap-1.5"
+            aria-label="Share"
+          >
+            <ShareIcon className="w-3.5 h-3.5" /> Share
+          </button>
+        )}
+        {post.url && (
           <a href={post.url} target="_blank" rel="noreferrer" className="text-xs px-2.5 py-1 rounded-md border border-border text-muted hover:text-ink flex items-center gap-1.5">
             <ExternalIcon className="w-3.5 h-3.5" /> Open
           </a>
@@ -90,11 +117,13 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
           {post.read_time_min ? ` · ${post.read_time_min} min` : ''}
         </div>
         {post.title && <h1 className="text-2xl sm:text-3xl font-bold leading-tight mb-4">{post.title}</h1>}
-        {post.tldr && (
+        {post.tldr ? (
           <div className="bg-elev border-l-2 border-wood pl-3 py-2 mb-6 text-muted italic text-sm whitespace-pre-line">
             <span className="text-wood font-bold not-italic mr-1">TLDR</span>
             {post.tldr}
           </div>
+        ) : (
+          <div className="text-muted/60 text-xs italic mb-6">AI summary unavailable for this post.</div>
         )}
 
         {post.video_url && (

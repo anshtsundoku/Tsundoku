@@ -2,6 +2,7 @@
 // Enforces the "only new content from when the source was added" rule.
 
 import { run, first } from '../lib/db.js';
+import { notifyNewPost } from '../services/notify.js';
 
 /**
  * Insert a post if it doesn't already exist AND it's newer than the
@@ -11,7 +12,10 @@ import { run, first } from '../lib/db.js';
  */
 export async function upsertPost(env, post) {
   const src = await first(env, `
-    SELECT id, user_id, domain_id, created_at FROM sources WHERE id = ?
+    SELECT s.id, s.user_id, s.domain_id, s.created_at, s.type, s.display_name,
+           d.slug AS domain_slug
+      FROM sources s JOIN domains d ON d.id = s.domain_id
+     WHERE s.id = ?
   `, [post.source_id]);
   if (!src) return null;
 
@@ -46,5 +50,14 @@ export async function upsertPost(env, post) {
   ]);
 
   await run(env, `UPDATE sources SET last_polled_at = datetime('now') WHERE id = ?`, [src.id]);
+
+  // Fire-and-forget push notification for this new post. Skips internally
+  // if VAPID isn't configured or the post is too old.
+  try {
+    await notifyNewPost(env, inserted, src.domain_slug, src.type, src.display_name);
+  } catch (e) {
+    console.warn('[notify] failed:', e.message);
+  }
+
   return inserted;
 }

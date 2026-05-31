@@ -86,6 +86,65 @@ export async function patchPost(req, { env, params }) {
   return json(p);
 }
 
+// GET /api/posts/search?q=…
+// Substring match across title, tldr, and content_text. Skips dismissed.
+// Returns at most 50 most-recent matches.
+export async function searchPosts(_req, { env, url }) {
+  const q = (url.searchParams.get('q') || '').trim();
+  if (q.length < 2) return json([]);
+  const like = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
+  const rows = await all(env, `
+    SELECT p.*, s.type AS source_type, s.identifier AS source_identifier,
+           s.display_name AS source_name, d.slug AS domain_slug
+      FROM posts p
+      JOIN sources s ON s.id = p.source_id
+      JOIN domains d ON d.id = p.domain_id
+     WHERE p.is_dismissed = 0
+       AND (
+         p.title        LIKE ? ESCAPE '\\' OR
+         p.content_text LIKE ? ESCAPE '\\' OR
+         p.tldr         LIKE ? ESCAPE '\\'
+       )
+     ORDER BY COALESCE(p.published_at, p.ingested_at) DESC
+     LIMIT 50
+  `, [like, like, like]);
+  return json(rows);
+}
+
+// GET /api/posts/library
+// Everything bookmarked or saved-for-weekend, cross-domain, most-recent first.
+export async function libraryPosts(_req, { env }) {
+  let rows;
+  try {
+    rows = await all(env, `
+      SELECT p.*, s.type AS source_type, s.identifier AS source_identifier,
+             s.display_name AS source_name, d.slug AS domain_slug
+        FROM posts p
+        JOIN sources s ON s.id = p.source_id
+        JOIN domains d ON d.id = p.domain_id
+       WHERE (p.is_bookmarked = 1 OR p.is_weekend = 1)
+         AND p.is_dismissed = 0
+       ORDER BY COALESCE(p.published_at, p.ingested_at) DESC
+       LIMIT 200
+    `);
+  } catch (e) {
+    // is_weekend may be missing if migrate:v1_3 wasn't run
+    if (/no such column.*is_weekend/i.test(e.message || '')) {
+      rows = await all(env, `
+        SELECT p.*, s.type AS source_type, s.identifier AS source_identifier,
+               s.display_name AS source_name, d.slug AS domain_slug
+          FROM posts p
+          JOIN sources s ON s.id = p.source_id
+          JOIN domains d ON d.id = p.domain_id
+         WHERE p.is_bookmarked = 1 AND p.is_dismissed = 0
+         ORDER BY COALESCE(p.published_at, p.ingested_at) DESC
+         LIMIT 200
+      `);
+    } else throw e;
+  }
+  return json(rows);
+}
+
 // GET /api/posts/source-counts → [{ type, unread_count }]
 // Powers the "New Reads/Watches" row on Home.
 export async function sourceCounts(_req, { env }) {

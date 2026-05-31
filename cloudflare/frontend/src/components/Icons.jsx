@@ -46,6 +46,22 @@ export const ExternalIcon = (p) => (
 export const XIcon = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M18 6L6 18M6 6l12 12" /></svg>
 );
+export const SearchIcon = (p) => (
+  <svg viewBox="0 0 24 24" {...base} {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20 L16.65 16.65" />
+  </svg>
+);
+export const LibraryIcon = (p) => (
+  <svg viewBox="0 0 24 24" {...base} {...p}>
+    <path d="M4 5h3v15H4z M9 5h3v15H9z M14 6l3 -0.5 3 14.5 -3 0.5z" />
+  </svg>
+);
+export const ShareIcon = (p) => (
+  <svg viewBox="0 0 24 24" {...base} {...p}>
+    <path d="M12 3 L12 15 M8 7 L12 3 L16 7 M5 12 L5 19 a2 2 0 0 0 2 2 L17 21 a2 2 0 0 0 2 -2 L19 12" />
+  </svg>
+);
 export const WeekendIcon = ({ filled, ...p }) => (
   <svg viewBox="0 0 24 24" {...base} fill={filled ? 'currentColor' : 'none'} {...p}>
     <rect x="3.5" y="5" width="17" height="16" rx="2" />

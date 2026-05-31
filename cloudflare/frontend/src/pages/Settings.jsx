@@ -1,16 +1,43 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { currentTheme, setTheme as persistTheme } from '../lib/theme.js';
+import { getPushStatus, subscribeToPush, unsubscribeFromPush } from '../lib/push.js';
 
 export default function Settings() {
   const [theme, setLocalTheme] = useState(currentTheme());
   const [refreshState, setRefreshState] = useState('idle');  // idle | loading | done | error
 
+  // Push notifications state
+  const [push, setPush] = useState({ supported: false, configured: false, subscribed: false, permission: 'default' });
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState(null);
+
   // When the toggle is clicked, apply theme locally AND sync to server so
   // the choice carries across devices.
   const changeTheme = (t) => { setLocalTheme(t); persistTheme(t); };
 
-  useEffect(() => {}, []);
+  const reloadPush = async () => {
+    try { setPush(await getPushStatus()); } catch (e) { console.warn(e); }
+  };
+
+  useEffect(() => { reloadPush(); }, []);
+
+  const togglePush = async () => {
+    setPushError(null);
+    setPushBusy(true);
+    try {
+      if (push.subscribed) {
+        await unsubscribeFromPush();
+      } else {
+        await subscribeToPush();
+      }
+      await reloadPush();
+    } catch (e) {
+      setPushError(e.message || 'Failed.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const triggerRefresh = async () => {
     setRefreshState('loading');
@@ -24,6 +51,28 @@ export default function Settings() {
     }
     setTimeout(() => setRefreshState('idle'), 3500);
   };
+
+  // Decide what the notifications row should say
+  const pushLabel = (() => {
+    if (!push.supported) return 'Not supported on this browser';
+    if (!push.configured) return 'Server not configured';
+    if (push.permission === 'denied') return 'Blocked in browser settings';
+    if (push.subscribed) return 'On — pinging this device';
+    return 'Off';
+  })();
+
+  const pushCta = (() => {
+    if (!push.supported || !push.configured || push.permission === 'denied') return null;
+    return (
+      <button
+        onClick={togglePush}
+        disabled={pushBusy}
+        className="text-sm bg-wood text-bg font-bold px-3 py-1.5 rounded-md hover:bg-wood-2 disabled:opacity-50"
+      >
+        {pushBusy ? '…' : push.subscribed ? 'Turn off' : 'Turn on'}
+      </button>
+    );
+  })();
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -41,6 +90,19 @@ export default function Settings() {
             </div>
           }
         />
+      </Section>
+
+      <Section title="Notifications">
+        <Row
+          label="Push for every new post"
+          desc={pushError ? pushError : pushLabel}
+          right={pushCta}
+        />
+        {push.supported && push.configured && push.permission !== 'denied' && (
+          <p className="text-xs text-muted pb-3 -mt-2">
+            Tip: on iPhone, install Tsundoku to your home screen first (Share → Add to Home Screen). Push only works from the installed app.
+          </p>
+        )}
       </Section>
 
       <Section title="Content">

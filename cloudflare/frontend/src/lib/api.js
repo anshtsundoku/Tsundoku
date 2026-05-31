@@ -38,6 +38,8 @@ export const api = {
   },
   getPost: (id) => request(`/posts/${id}`),
   patchPost: (id, data) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  searchPosts: (q) => request(`/posts/search?q=${encodeURIComponent(q)}`),
+  libraryPosts: () => request('/posts/library'),
   dismissPost: (id) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify({ is_dismissed: true }) }),
   // Unread count per source type — for the New Reads/Watches row on Home.
   sourceCounts: () => request('/posts/source-counts'),

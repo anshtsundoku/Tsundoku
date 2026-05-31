@@ -2,15 +2,18 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// Cloudflare Pages build. The API URL is read from VITE_API_BASE at build
-// time; if unset (e.g. `npm run dev`), we fall back to a Vite proxy to a
-// locally-running `wrangler dev`.
+// Cloudflare Pages build.
 
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // injectManifest lets us own the service worker source. We add web
+      // push + notificationclick handlers on top of Workbox precaching.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Tsundoku',
@@ -21,20 +24,14 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
-        // Renamed (icon-dark-*) to force iOS to re-download instead of
-        // using the cached version it stubbornly held onto.
         icons: [
           { src: '/icon-dark-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-dark-512.png', sizes: '512x512', type: 'image/png' },
           { src: '/icon-dark-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        runtimeCaching: [
-          { urlPattern: /\/api\//, handler: 'NetworkFirst',
-            options: { cacheName: 'api', networkTimeoutSeconds: 5 } },
-        ],
       },
     }),
   ],
@@ -42,7 +39,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/api': { target: 'http://localhost:8787', changeOrigin: true }, // wrangler dev
+      '/api': { target: 'http://localhost:8787', changeOrigin: true },
     },
   },
 });

@@ -4,6 +4,8 @@ import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
 import PostCard from '../components/PostCard.jsx';
 import PostDetail from '../components/PostDetail.jsx';
+import { SkeletonList } from '../components/Skeleton.jsx';
+import { EmptyState } from '../components/EmptyState.jsx';
 
 const TABS = [
   { key: 'unread',   label: 'Unread' },
@@ -94,11 +96,11 @@ export default function Domain() {
     ? posts.filter(p => p.is_bookmarked && !p.is_dismissed)
     : posts.filter(p => p.is_weekend && !p.is_dismissed);
 
-  const emptyMsg = {
-    unread:   'You’re all caught up.',
-    read:     'Nothing read yet.',
-    bookmark: 'No bookmarks here yet.',
-    weekend:  'Nothing saved for the weekend yet.',
+  const emptyKind = {
+    unread:   'caught-up',
+    read:     'nothing-read',
+    bookmark: 'no-bookmarks',
+    weekend:  'no-weekend',
   }[tab];
 
   return (
@@ -123,9 +125,9 @@ export default function Domain() {
       </div>
 
       {loading ? (
-        <div className="text-muted">Loading…</div>
+        <SkeletonList n={4} />
       ) : visiblePosts.length === 0 ? (
-        <div className="text-muted text-center py-12">{emptyMsg}</div>
+        <EmptyState kind={emptyKind} />
       ) : (
         <div className="space-y-3">
           {visiblePosts.map(post => (

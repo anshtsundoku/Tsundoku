@@ -9,10 +9,11 @@
 import { Router, json, handleOptions } from './lib/router.js';
 import { listDomains, createDomain }       from './routes/domains.js';
 import { listSources, createSource, deleteSource, patchSource } from './routes/sources.js';
-import { listPosts, getPost, patchPost, sourceCounts } from './routes/posts.js';
+import { listPosts, getPost, patchPost, sourceCounts, searchPosts, libraryPosts } from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
-import { triggerIngest, status, regenerateTldrs } from './routes/admin.js';
+import { triggerIngest, status, regenerateTldrs, geminiTest } from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
+import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
 
 import { runRss }         from './ingest/rss.js';
 import { runYoutube }     from './ingest/youtube.js';
@@ -33,6 +34,8 @@ const router = new Router()
   // Posts
   .get('/api/posts',                     listPosts)
   .get('/api/posts/source-counts',       sourceCounts)
+  .get('/api/posts/search',              searchPosts)
+  .get('/api/posts/library',             libraryPosts)
   .get('/api/posts/:id',                 getPost)
   .patch('/api/posts/:id',               patchPost)
   // Highlights
@@ -42,11 +45,18 @@ const router = new Router()
   // Preferences (cross-device theme etc.)
   .get('/api/prefs',                     getPrefs)
   .patch('/api/prefs',                   patchPrefs)
+  // Push notifications
+  .get('/api/push/vapid-public-key',     vapidPublicKey)
+  .get('/api/push/status',               pushStatus)
+  .post('/api/push/subscribe',           subscribe)
+  .delete('/api/push/subscribe',         unsubscribe)
   // Admin / debugging
   .get('/api/admin/status',              status)
   .post('/api/admin/trigger-ingest',     triggerIngest)
   .post('/api/admin/trigger-ingest/:pipeline', triggerIngest)
-  .post('/api/admin/regenerate-tldrs',   regenerateTldrs);
+  .post('/api/admin/regenerate-tldrs',   regenerateTldrs)
+  .get('/api/admin/gemini-test',         geminiTest)
+  .post('/api/admin/vapid-gen',          vapidGen);
 
 export default {
   async fetch(request, env, ctx) {

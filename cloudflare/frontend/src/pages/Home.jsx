@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
 import { DomainIcon } from '../components/Icons.jsx';
 import { typeLabel, VISIBLE_TYPES } from '../lib/labels.js';
+import { SkeletonGrid } from '../components/Skeleton.jsx';
 
 export default function Home() {
   const [domains, setDomains] = useState([]);
@@ -31,8 +32,8 @@ export default function Home() {
   useEffect(() => { load(); }, []);
   usePoll(load, 15000, []);
 
-  if (loading) return <div className="text-muted">Loading…</div>;
-  if (error)   return <div className="text-wood text-sm">Couldn’t load: {error}</div>;
+  if (loading) return <SkeletonGrid n={8} />;
+  if (error)   return <div className="text-wood text-sm">Couldn't load: {error}</div>;
 
   // Build the "New Reads/Watches" row — one pill per visible source type,
   // ordered consistently. Pills appear whether or not there are unread items

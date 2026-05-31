@@ -64,6 +64,16 @@ mark.mindful-highlight {
 *::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 *::-webkit-scrollbar-track { background: transparent; }
 
+/* Skeleton loader — pulse animation. Use class="skeleton" on a plain bg-border
+   rect to get the shimmering effect. */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.85; }
+}
+.skeleton {
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
 /* Reading typography for post body */
 .prose-mindful {
   @apply text-ink leading-relaxed;

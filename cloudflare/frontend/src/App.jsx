@@ -5,8 +5,10 @@ import Domain from './pages/Domain.jsx';
 import Sources from './pages/Sources.jsx';
 import Settings from './pages/Settings.jsx';
 import TypeFeed from './pages/TypeFeed.jsx';
+import Search   from './pages/Search.jsx';
+import Library  from './pages/Library.jsx';
 import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
-import { GearIcon, HomeIcon } from './components/Icons.jsx';
+import { GearIcon, HomeIcon, SearchIcon, LibraryIcon } from './components/Icons.jsx';
 
 // Brand mark — a single closed book with a bookmark ribbon. Minimal, apt
 // for "Tsundoku" (the unread book waiting for you). Uses currentColor so
@@ -56,6 +58,12 @@ export default function App() {
               <HomeIcon className="w-5 h-5" />
             </Link>
           )}
+          <Link to="/search" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Search">
+            <SearchIcon className="w-5 h-5" />
+          </Link>
+          <Link to="/library" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Library">
+            <LibraryIcon className="w-5 h-5" />
+          </Link>
           <Link to="/settings" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Settings">
             <GearIcon className="w-5 h-5" />
           </Link>
@@ -80,6 +88,8 @@ export default function App() {
               (from the "New Reads / Watches" pills on Home). */}
           <Route path="/t/:type"           element={<TypeFeed />} />
           <Route path="/t/:type/p/:postId" element={<TypeFeed />} />
+          <Route path="/search"            element={<Search />} />
+          <Route path="/library"           element={<Library />} />
           <Route path="/sources"           element={<Sources />} />
           <Route path="/settings"          element={<Settings />} />
         </Routes>
