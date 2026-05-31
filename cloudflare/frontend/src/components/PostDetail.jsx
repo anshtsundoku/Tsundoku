@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
-import { BookmarkIcon, CheckIcon, HighlightIcon, ExternalIcon, WeekendIcon } from './Icons.jsx';
+import { BookmarkIcon, CheckIcon, HighlightIcon, ExternalIcon, ShareIcon, WeekendIcon } from './Icons.jsx';
 
 // Full-page post detail. Rendered when the route is /d/:slug/p/:postId.
 // On mobile this fills the screen and the OS back gesture returns to the
