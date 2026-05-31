@@ -4,6 +4,7 @@
 import { all } from '../lib/db.js';
 import { parseFeed } from '../services/rssParse.js';
 import { summarize } from '../services/summarizer.js';
+import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
 import { upsertPost } from './_common.js';
 
 export async function runRss(env) {
@@ -27,11 +28,16 @@ export async function runRss(env) {
       const items = feed.items.slice(0, Number(env.RSS_MAX_ITEMS || 20));
       for (const item of items) {
         if (!item.contentText && !item.title) continue;
-        const kind = s.type === 'podcast' ? 'podcast episode'
-                  : s.type === 'website' ? 'article' : 'article';
-      const { tldr, read_time_min } = await summarize(env, {
+        const kind = s.type === 'podcast' ? 'podcast episode' : 'article';
+        const { tldr, read_time_min: textMin } = await summarize(env, {
           title: item.title, text: item.contentText, kind,
         });
+        // Blog posts that embed YouTube videos: add the video runtime to
+        // the read-time. Podcasts don't typically embed YT.
+        const embeddedVideoMin = s.type === 'website'
+          ? await totalEmbeddedYoutubeMin(item.contentHtml, env.YOUTUBE_API_KEY)
+          : 0;
+        const read_time_min = (textMin || 0) + embeddedVideoMin;
         await upsertPost(env, {
           source_id:    s.id,
           external_id:  item.guid || item.link || item.title,

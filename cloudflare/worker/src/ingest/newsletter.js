@@ -9,6 +9,8 @@
 
 import { all, first, run } from '../lib/db.js';
 import { summarize } from '../services/summarizer.js';
+import { stripHtml } from '../lib/textClean.js';
+import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
 import { upsertPost } from './_common.js';
 
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -91,14 +93,6 @@ function extractParts(payload) {
   return { html, text };
 }
 
-function stripHtml(html) {
-  return html.replace(/<style[\s\S]*?<\/style>/gi, '')
-             .replace(/<script[\s\S]*?<\/script>/gi, '')
-             .replace(/<[^>]+>/g, ' ')
-             .replace(/\s+/g, ' ')
-             .trim();
-}
-
 function extractEmail(fromHeader) {
   const m = /<([^>]+)>/.exec(fromHeader);
   return (m ? m[1] : fromHeader).trim().toLowerCase();
@@ -178,9 +172,14 @@ export async function runNewsletters(env) {
       const body = text || stripHtml(html);
       if (!body) continue;
 
-      const { tldr, read_time_min } = await summarize(env,
+      const { tldr, read_time_min: textMin } = await summarize(env,
         { title: subject, text: body, kind: 'newsletter' }
       );
+
+      // If the newsletter embeds YouTube videos, add their actual runtimes
+      // so the "N min" badge reflects total time-to-consume, not just text.
+      const embeddedVideoMin = await totalEmbeddedYoutubeMin(html, env.YOUTUBE_API_KEY);
+      const read_time_min = (textMin || 0) + embeddedVideoMin;
 
       // The same message can match more than one source (e.g. a label AND
       // a sender). Insert once per matching source so it shows up in each.

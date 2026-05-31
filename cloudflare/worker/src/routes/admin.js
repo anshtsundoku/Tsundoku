@@ -8,6 +8,8 @@
 import { json } from '../lib/router.js';
 import { all, first, run } from '../lib/db.js';
 import { summarize } from '../services/summarizer.js';
+import { stripHtml } from '../lib/textClean.js';
+import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
 import { runRss }         from '../ingest/rss.js';
 import { runYoutube }     from '../ingest/youtube.js';
 import { runTwitter }     from '../ingest/twitter.js';
@@ -45,9 +47,12 @@ export async function triggerIngest(req, { env, ctx, params }) {
 }
 
 // POST /api/admin/regenerate-tldrs
-// Re-summarizes posts with missing or fallback ("(raw)") TLDRs using the
-// current prompt. Useful after the TLDR prompt is improved — backfills the
-// already-ingested content.
+// Re-summarizes posts with missing or fallback ("(raw)") TLDRs. Also fixes
+// the upstream cause of bad TLDRs: re-strips content_text from content_html
+// using the new stripHtml that decodes entities and removes invisible
+// tracker chars. Updates content_text, tldr, AND adds embedded YT video
+// runtime into read_time_min — so this single backfill repairs all v1.3.2
+// concerns for already-ingested posts.
 export async function regenerateTldrs(req, { env, ctx }) {
   if (!checkAuth(req, env)) return json({ error: 'unauthorized' }, 401);
   const limit = Math.min(Number((await safeJson(req))?.limit || 30), 100);
@@ -55,24 +60,44 @@ export async function regenerateTldrs(req, { env, ctx }) {
   // Fire-and-forget so the HTTP call returns immediately.
   ctx.waitUntil((async () => {
     const rows = await all(env, `
-      SELECT id, title, content_text
-        FROM posts
-       WHERE (tldr IS NULL OR tldr = '' OR tldr LIKE '(raw)%')
-         AND content_text IS NOT NULL
-         AND LENGTH(content_text) > 0
-       ORDER BY ingested_at DESC
+      SELECT p.id, p.title, p.content_html, p.content_text, p.read_time_min,
+             s.type AS source_type
+        FROM posts p
+        JOIN sources s ON s.id = p.source_id
+       WHERE (p.tldr IS NULL OR p.tldr = '' OR p.tldr LIKE '(raw)%')
+       ORDER BY p.ingested_at DESC
        LIMIT ?
     `, [limit]);
     let updated = 0;
     for (const p of rows) {
       try {
-        const { tldr } = await summarize(env, {
-          title: p.title, text: p.content_text, kind: 'article',
+        // Re-derive clean text from the original HTML when we have it. This
+        // is where the old `(raw)` posts get their entities decoded and
+        // invisible chars stripped.
+        const cleanedText = p.content_html ? stripHtml(p.content_html) : p.content_text;
+        if (!cleanedText) continue;
+
+        const kind = p.source_type === 'newsletter' ? 'newsletter'
+                   : p.source_type === 'podcast'   ? 'podcast episode'
+                   : 'article';
+        const { tldr, read_time_min: textMin } = await summarize(env, {
+          title: p.title, text: cleanedText, kind,
         });
-        if (tldr) {
-          await run(env, `UPDATE posts SET tldr = ? WHERE id = ?`, [tldr, p.id]);
-          updated++;
-        }
+        if (!tldr) continue;
+
+        // For newsletters / blog posts that embed YouTube, also fold in the
+        // embedded videos' real runtimes (the same fix from the live ingest
+        // path, applied retroactively).
+        const embedMin = (p.source_type === 'newsletter' || p.source_type === 'website')
+          ? await totalEmbeddedYoutubeMin(p.content_html, env.YOUTUBE_API_KEY)
+          : 0;
+        const newReadTime = (textMin || 0) + embedMin;
+
+        await run(env,
+          `UPDATE posts SET tldr = ?, content_text = ?, read_time_min = ? WHERE id = ?`,
+          [tldr, cleanedText, newReadTime, p.id]
+        );
+        updated++;
       } catch (e) {
         console.warn('[regenerate-tldrs] post', p.id, 'failed:', e.message);
       }

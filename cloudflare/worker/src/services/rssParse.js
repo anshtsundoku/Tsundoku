@@ -14,21 +14,13 @@ function tagAttr(xml, name, attr) {
   const m = re.exec(xml);
   return m ? m[1] : null;
 }
+import { stripHtml as cleanHtml } from '../lib/textClean.js';
+
 function unescapeXml(s) {
   if (!s) return s;
-  return s
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
 }
-function stripHtml(html) {
-  if (!html) return '';
-  return html.replace(/<style[\s\S]*?<\/style>/gi, '')
-             .replace(/<script[\s\S]*?<\/script>/gi, '')
-             .replace(/<[^>]+>/g, ' ')
-             .replace(/\s+/g, ' ')
-             .trim();
-}
+const stripHtml = cleanHtml;
 
 function pickItems(xml) {
   const out = [];

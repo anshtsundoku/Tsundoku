@@ -7,6 +7,7 @@
 
 import { all } from '../lib/db.js';
 import { summarizeVideo } from '../services/summarizer.js';
+import { fetchDurations, parseIsoDurationMin } from '../lib/youtubeDurations.js';
 import { upsertPost } from './_common.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
@@ -33,39 +34,6 @@ async function recentVideos(channelId, apiKey, sinceIso, max) {
   const r = await fetch(`${API}/search?${p}`);
   const data = await r.json();
   return data?.items || [];
-}
-
-// Batch-fetch contentDetails for a set of video IDs. Returns a map of
-// videoId → ISO-8601 duration string (e.g. "PT15M33S"). One API call per
-// batch of up to 50 IDs; costs 1 quota unit regardless of batch size.
-async function fetchDurations(videoIds, apiKey) {
-  if (!videoIds.length) return {};
-  const p = new URLSearchParams({
-    part: 'contentDetails',
-    id: videoIds.join(','),
-    key: apiKey,
-  });
-  const r = await fetch(`${API}/videos?${p}`);
-  const data = await r.json();
-  const out = {};
-  for (const item of data?.items || []) {
-    out[item.id] = item.contentDetails?.duration;
-  }
-  return out;
-}
-
-// "PT1H22M33S" → 83  (rounds seconds up to a minute floor of 1)
-// "PT45S"      → 1
-// "PT15M"      → 15
-function parseIsoDurationMin(iso) {
-  if (!iso) return 0;
-  const m = String(iso).match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
-  if (!m) return 0;
-  const hours   = Number(m[1] || 0);
-  const minutes = Number(m[2] || 0);
-  const seconds = Number(m[3] || 0);
-  const total = hours * 60 + minutes + Math.round(seconds / 60);
-  return Math.max(1, total);
 }
 
 // Auto-caption transcript scrape — YouTube blocks server fetches sometimes;
