@@ -38,7 +38,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header
-        className="sticky top-0 z-20 backdrop-blur bg-bg/85 border-b border-border"
+        className="sticky top-0 z-20 bg-bg border-b-2 border-ink"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div
@@ -48,23 +48,23 @@ export default function App() {
             paddingRight: 'max(1rem, env(safe-area-inset-right))',
           }}
         >
-          <Link to="/" className="font-bold tracking-tight flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2.5">
             <span className="text-wood"><Brand size="xl" /></span>
-            <span className="text-2xl sm:text-3xl">Tsundoku</span>
+            <span className="text-2xl sm:text-3xl font-bold uppercase tracking-tight leading-none">Tsundoku</span>
           </Link>
           <div className="flex-1" />
           {loc.pathname !== '/' && (
-            <Link to="/" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Home">
+            <Link to="/" className="p-2.5 sm:p-2 border border-transparent hover:border-ink text-ink transition-colors" aria-label="Home">
               <HomeIcon className="w-5 h-5" />
             </Link>
           )}
-          <Link to="/search" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Search">
+          <Link to="/search" className="p-2.5 sm:p-2 border border-transparent hover:border-ink text-ink transition-colors" aria-label="Search">
             <SearchIcon className="w-5 h-5" />
           </Link>
-          <Link to="/library" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Library">
+          <Link to="/library" className="p-2.5 sm:p-2 border border-transparent hover:border-ink text-ink transition-colors" aria-label="Library">
             <LibraryIcon className="w-5 h-5" />
           </Link>
-          <Link to="/settings" className="p-2.5 sm:p-2 rounded-md hover:bg-elev text-muted" aria-label="Settings">
+          <Link to="/settings" className="p-2.5 sm:p-2 border border-transparent hover:border-ink text-ink transition-colors" aria-label="Settings">
             <GearIcon className="w-5 h-5" />
           </Link>
         </div>

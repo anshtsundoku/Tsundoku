@@ -58,15 +58,15 @@ export default function TypeFeed() {
 
   return (
     <div>
-      <div className="mb-5">
-        <Link to="/" className="text-sm text-muted hover:text-ink">← Home</Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">{typeLabel(type)} · New</h1>
+      <div className="mb-6">
+        <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
+        <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none">{typeLabel(type)} / New</h1>
       </div>
 
       {loading ? (
-        <div className="text-muted">Loading…</div>
+        <div className="eyebrow text-muted">Loading…</div>
       ) : visible.length === 0 ? (
-        <div className="text-muted text-center py-12">No new {typeLabel(type).toLowerCase()} items right now.</div>
+        <div className="eyebrow text-muted text-center py-12">No new {typeLabel(type).toLowerCase()} items right now.</div>
       ) : (
         <div className="space-y-3">
           {visible.map(post => (

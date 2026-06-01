@@ -43,44 +43,48 @@ export default function Home() {
 
   return (
     <div>
-      <section className="mb-6 sm:mb-8">
-        <h2 className="text-xs uppercase tracking-wider text-muted font-bold mb-2 ml-0.5">New Reads / Watches</h2>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      <section className="mb-8 sm:mb-10">
+        <h2 className="eyebrow text-muted mb-3 pb-2 border-b border-border">New Reads / Watches</h2>
+        <div className="flex flex-wrap gap-x-0 gap-y-0 -mt-px">
           {visibleTypes.map(t => {
             const count = countByType[t] || 0;
             return (
               <Link
                 key={t}
                 to={`/t/${t}`}
-                className="shrink-0 inline-flex items-center gap-1.5 bg-elev border border-border rounded-full px-3 py-1.5 text-xs font-medium hover:border-wood/50 transition"
+                className="group shrink-0 inline-flex items-center gap-2 border border-ink -ml-px -mt-px px-3 py-2 text-xs font-bold uppercase tracking-eyebrow hover:bg-ink hover:text-bg transition-colors"
               >
-                <span className="text-ink">{typeLabel(t)}</span>
-                <span className={count > 0 ? 'text-wood font-bold' : 'text-muted'}>{count}</span>
+                <span>{typeLabel(t)}</span>
+                <span className={count > 0 ? 'text-wood group-hover:text-bg tabular-nums' : 'text-muted group-hover:text-bg tabular-nums'}>
+                  {String(count).padStart(2, '0')}
+                </span>
               </Link>
             );
           })}
         </div>
       </section>
 
-      <div className="grid grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* Modular grid: shared hairlines drawn by the container's top/left edge
+          plus each cell's right/bottom edge — the Swiss grid made literal. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 border-t border-l border-ink">
         {domains.map(d => (
           <Link
             key={d.id}
             to={`/d/${d.slug}`}
-            className="group relative bg-elev border border-border rounded-xl aspect-square p-3 shadow-soft hover:border-wood/50 hover:-translate-y-0.5 transition flex flex-col"
+            className="group relative bg-bg border-r border-b border-ink aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col"
           >
-            <div className="text-wood">
-              <DomainIcon name={d.icon} className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div className="text-wood group-hover:text-bg transition-colors">
+              <DomainIcon name={d.icon} className="w-6 h-6" />
             </div>
             <div className="flex-1" />
             <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate">{d.name}</h2>
-              <div className="text-xs text-muted mt-0.5 min-h-[1.1em]">
+              <h2 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate uppercase">{d.name}</h2>
+              <div className="text-xs text-muted group-hover:text-bg/70 mt-1 min-h-[1.1em] tabular-nums">
                 {d.unread_count > 0 ? `${d.unread_count} new` : ''}
               </div>
             </div>
             {d.unread_count > 0 && (
-              <span className="absolute top-2 right-2 text-[10px] font-bold text-bg bg-wood rounded-full px-1.5 py-0.5 min-w-[1.1rem] text-center">
+              <span className="absolute top-0 right-0 text-[10px] font-bold text-bg bg-wood px-1.5 py-0.5 min-w-[1.25rem] text-center tabular-nums">
                 {d.unread_count}
               </span>
             )}

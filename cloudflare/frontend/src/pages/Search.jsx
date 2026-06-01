@@ -35,7 +35,7 @@ export default function Search() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <Link to="/" className="text-sm text-muted hover:text-ink">← Home</Link>
+      <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
 
       <div className="relative mt-3 mb-6">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
@@ -46,12 +46,12 @@ export default function Search() {
           placeholder="search across everything you've saved"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="w-full bg-elev border border-border rounded-xl pl-10 pr-3 py-3 text-ink outline-none focus:border-wood/60"
+          className="w-full bg-elev border border-border pl-10 pr-3 py-3 text-ink outline-none focus:border-ink"
         />
       </div>
 
       {searching && q.length >= 2 && (
-        <div className="text-muted text-sm">searching…</div>
+        <div className="eyebrow text-muted">searching…</div>
       )}
 
       {!searching && touched && q.length >= 2 && results.length === 0 && (
@@ -64,12 +64,12 @@ export default function Search() {
             <li key={p.id}>
               <button
                 onClick={() => navigate(`/d/${p.domain_slug}/p/${p.id}`)}
-                className="w-full text-left bg-elev border border-border rounded-xl p-4 hover:border-wood/40 transition"
+                className="w-full text-left bg-elev border border-border p-4 hover:border-ink transition-colors"
               >
-                <div className="text-xs uppercase tracking-wider text-wood mb-1">
-                  {typeLabel(p.source_type)} · {p.source_name || p.author || ''}
+                <div className="eyebrow text-wood mb-1.5">
+                  {typeLabel(p.source_type)} / {p.source_name || p.author || ''}
                 </div>
-                {p.title && <div className="font-bold leading-snug mb-1">{p.title}</div>}
+                {p.title && <div className="font-bold leading-snug tracking-tight mb-1">{p.title}</div>}
                 {p.tldr && <div className="text-sm text-muted line-clamp-2">{p.tldr}</div>}
               </button>
             </li>

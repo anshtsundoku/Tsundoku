@@ -5,8 +5,8 @@ export function EmptyState({ kind = 'caught-up' }) {
   const C = COPY[kind] || COPY['caught-up'];
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="text-wood/70 mb-5">{C.art}</div>
-      <h3 className="font-bold text-lg mb-1">{C.title}</h3>
+      <div className="text-wood mb-5">{C.art}</div>
+      <h3 className="font-bold text-lg tracking-tight mb-1">{C.title}</h3>
       <p className="text-sm text-muted max-w-xs">{C.line}</p>
     </div>
   );

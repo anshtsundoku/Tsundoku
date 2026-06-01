@@ -113,17 +113,17 @@ export default function Sources() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Link to="/settings" className="text-sm text-muted hover:text-ink">← Settings</Link>
-      <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight mb-6">Sources</h1>
+      <Link to="/settings" className="eyebrow text-muted hover:text-ink transition-colors">← Settings</Link>
+      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none mb-6">Sources</h1>
 
       {loadError && (
-        <div className="mb-6 text-sm text-wood bg-wood/10 border border-wood/30 rounded-md px-3 py-2">
+        <div className="mb-6 text-sm text-wood bg-wood/10 border border-wood px-3 py-2">
           Couldn’t load: {loadError}
         </div>
       )}
 
-      <form onSubmit={save} className="card bg-elev border border-border rounded-xl p-5 mb-8">
-        <h2 className="font-bold mb-3 flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Add a source</h2>
+      <form onSubmit={save} className="card bg-elev border border-border p-5 mb-8">
+        <h2 className="eyebrow text-wood mb-4 pb-2 border-b border-ink flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Add a source</h2>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="text-sm">
             <div className="text-muted text-xs uppercase tracking-wider mb-1">Type</div>
@@ -175,7 +175,7 @@ export default function Sources() {
           </label>
         </div>
         <div className="mt-4 flex items-center gap-3 flex-wrap">
-          <button disabled={saving} className="bg-wood text-bg font-bold rounded-md px-4 py-2 hover:bg-wood-2 disabled:opacity-50">
+          <button disabled={saving} className="bg-wood text-bg font-bold uppercase tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 disabled:opacity-50 transition-colors">
             {saving ? (form.type === 'website' ? 'Finding feed…' : 'Adding…') : 'Add source'}
           </button>
           {notice && (
@@ -189,11 +189,11 @@ export default function Sources() {
       <div className="space-y-6">
         {grouped.map(d => (
           <div key={d.id}>
-            <h3 className="font-bold text-sm uppercase tracking-wider text-wood mb-2">{d.name}</h3>
+            <h3 className="eyebrow text-wood mb-2 pb-2 border-b border-ink">{d.name}</h3>
             {d.sources.length === 0 ? (
-              <div className="text-sm text-muted italic">No sources yet.</div>
+              <div className="text-sm text-muted">No sources yet.</div>
             ) : (
-              <ul className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-elev">
+              <ul className="divide-y divide-border border border-border overflow-hidden bg-elev">
                 {d.sources.map(s => editing === s.id ? (
                   <li key={s.id} className="px-4 py-3">
                     <div className="grid sm:grid-cols-2 gap-2 mb-3">
@@ -240,20 +240,20 @@ export default function Sources() {
                       <button
                         onClick={() => saveEdit(s.id)}
                         disabled={saving}
-                        className="bg-wood text-bg text-xs font-bold rounded-md px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50"
+                        className="bg-wood text-bg text-xs font-bold uppercase tracking-eyebrow px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
                       >
                         {saving ? 'Saving…' : 'Save'}
                       </button>
-                      <button onClick={cancelEdit} className="text-xs text-muted hover:text-ink px-3 py-1.5">
+                      <button onClick={cancelEdit} className="text-xs font-bold uppercase tracking-eyebrow text-muted hover:text-ink px-3 py-1.5 transition-colors">
                         Cancel
                       </button>
                     </div>
                   </li>
                 ) : (
                   <li key={s.id} className="px-4 py-3 flex items-center gap-3">
-                    <span className="text-xs font-bold text-wood uppercase tracking-wider w-20 shrink-0">{typeLabel(s.type)}</span>
+                    <span className="eyebrow text-wood w-20 shrink-0">{typeLabel(s.type)}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{s.display_name || s.identifier}</div>
+                      <div className="font-bold tracking-tight truncate">{s.display_name || s.identifier}</div>
                       <div className="text-xs text-muted truncate">
                         {s.identifier}
                         {!s.active && <span className="ml-2 text-wood">· paused</span>}
@@ -261,7 +261,7 @@ export default function Sources() {
                     </div>
                     <button
                       onClick={() => startEdit(s)}
-                      className="text-xs text-muted hover:text-ink px-2 py-1"
+                      className="text-xs font-bold uppercase tracking-eyebrow text-muted hover:text-ink px-2 py-1 transition-colors"
                       aria-label="Edit"
                     >
                       Edit

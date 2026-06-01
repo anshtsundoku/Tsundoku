@@ -36,16 +36,16 @@ export default function Library() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <Link to="/" className="text-sm text-muted hover:text-ink">← Home</Link>
-      <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight mb-5">Library</h1>
+      <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
+      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none mb-6">Library</h1>
 
-      <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
+      <div className="flex gap-0 border-b-2 border-ink mb-6 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition shrink-0 ${
-              tab === t.key ? 'border-wood text-ink' : 'border-transparent text-muted hover:text-ink'
+            className={`px-3 py-2 text-xs font-bold uppercase tracking-eyebrow border-b-2 -mb-0.5 transition-colors shrink-0 ${
+              tab === t.key ? 'border-wood text-wood' : 'border-transparent text-muted hover:text-ink'
             }`}
           >
             {t.label}
@@ -63,16 +63,16 @@ export default function Library() {
             <li key={p.id}>
               <button
                 onClick={() => navigate(`/d/${p.domain_slug}/p/${p.id}`)}
-                className="w-full text-left bg-elev border border-border rounded-xl p-4 hover:border-wood/40 transition"
+                className="w-full text-left bg-elev border border-border p-4 hover:border-ink transition-colors"
               >
-                <div className="text-xs uppercase tracking-wider text-wood mb-1 flex items-center gap-2">
-                  <span>{typeLabel(p.source_type)} · {p.source_name || p.author || ''}</span>
+                <div className="eyebrow text-wood mb-1.5 flex items-center gap-2">
+                  <span>{typeLabel(p.source_type)} / {p.source_name || p.author || ''}</span>
                   <span className="flex items-center gap-1">
                     {p.is_bookmarked && <BookmarkIcon filled className="w-3 h-3" />}
                     {p.is_weekend    && <WeekendIcon  filled className="w-3 h-3" />}
                   </span>
                 </div>
-                {p.title && <div className="font-bold leading-snug mb-1">{p.title}</div>}
+                {p.title && <div className="font-bold leading-snug tracking-tight mb-1">{p.title}</div>}
                 {p.tldr && <div className="text-sm text-muted line-clamp-2">{p.tldr}</div>}
               </button>
             </li>

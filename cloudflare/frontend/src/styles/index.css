@@ -3,27 +3,28 @@
 @tailwind utilities;
 
 :root {
-  /* Light mode: warm cream + light grey with walnut accents */
-  --bg:        245 243 238;   /* #F5F3EE  warm cream */
-  --elev:      255 254 251;   /* near-white card surface */
-  --ink:        58  46  38;   /* #3A2E26  espresso text */
-  --muted:     110  96  85;   /* #6E6055  muted text */
-  --wood:      107  68  35;   /* #6B4423  walnut brown */
-  --wood-2:    150 112  75;   /* #96704B  light walnut */
-  --border:    229 221 210;   /* #E5DDD2  warm light grey */
-  --highlight: 232 198 138;   /* #E8C68A  soft amber for highlights */
+  /* Light theme — Swiss paper: pure white ground, near-black ink, hairline
+     grey rules, one saturated red accent. */
+  --bg:        255 255 255;   /* paper white */
+  --elev:      245 245 245;   /* light grey panel block */
+  --ink:        17  17  17;   /* near-black text + rules */
+  --muted:     115 115 115;   /* secondary grey */
+  --wood:      227   0  15;   /* #E3000F  Swiss red accent */
+  --wood-2:    184   0  12;   /* darker red for hover */
+  --border:    214 214 214;   /* #D6D6D6  hairline grey */
+  --highlight: 255 230   0;   /* signal yellow for highlights */
 }
 
 .dark {
-  /* Dark mode: deep wood + warm cream text */
-  --bg:         26  22  20;   /* #1A1614 */
-  --elev:       34  28  24;   /* #221C18 */
-  --ink:       232 223 211;   /* #E8DFD3 */
-  --muted:     156 141 126;   /* #9C8D7E */
-  --wood:      176 137 104;   /* #B08968  warm wood accent */
-  --wood-2:    140 105  78;   /* #8C694E */
-  --border:     47  39  34;   /* #2F2722 */
-  --highlight: 138 100  47;   /* deeper amber that stays subtle */
+  /* Dark theme — inverted paper: near-black ground, paper-white ink. */
+  --bg:         10  10  10;   /* #0A0A0A */
+  --elev:       23  23  23;   /* #171717 panel block */
+  --ink:       240 240 240;   /* paper white text */
+  --muted:     150 150 150;   /* secondary grey */
+  --wood:      255  59  48;   /* brighter red so it reads on black */
+  --wood-2:    220  38  38;
+  --border:     42  42  42;   /* #2A2A2A hairline */
+  --highlight: 234 179   8;   /* muted yellow */
 }
 
 /* iOS / mobile hygiene */
@@ -36,9 +37,10 @@ html, body, #root { height: 100%; }
 
 body {
   @apply bg-bg text-ink antialiased;
-  font-family: 'Calibri', 'Carlito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Helvetica Neue', 'Archivo', 'Helvetica', 'Arial', sans-serif;
   -webkit-tap-highlight-color: transparent;
-  font-feature-settings: "kern" 1, "liga" 1;
+  /* Tighten the grotesque slightly and keep numerals lining — a Swiss tell. */
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
 }
 
 /* Prevent iOS Safari from zooming the page when you focus a form field —
@@ -47,21 +49,27 @@ input, select, textarea {
   font-size: max(16px, 1rem);
 }
 
+/* Swiss eyebrow / kicker label — uppercase, tracked, small. */
+.eyebrow {
+  @apply text-xs font-bold uppercase tracking-eyebrow;
+}
+
 /* Smooth theme transition */
 body, .surface, .card {
   transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
 }
 
-/* User-saved highlight inside post body */
+/* User-saved highlight inside post body — solid signal-yellow block, no
+   rounding, in keeping with the geometric language. */
 mark.mindful-highlight {
-  @apply bg-highlight/40 text-ink rounded-sm px-0.5;
+  @apply bg-highlight/70 text-ink px-0.5;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
 
 /* Quiet scrollbar (desktop only — iOS hides natively) */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+*::-webkit-scrollbar-thumb { @apply bg-border; }
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* Skeleton loader — pulse animation. Use class="skeleton" on a plain bg-border
@@ -74,13 +82,14 @@ mark.mindful-highlight {
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
 
-/* Reading typography for post body */
+/* Reading typography for post body — flush-left, ragged-right, generous
+   leading. Sans throughout, true to the Swiss canon. */
 .prose-mindful {
   @apply text-ink leading-relaxed;
   font-size: 1.05rem;
 }
-.prose-mindful p { @apply my-3; }
-.prose-mindful h1, .prose-mindful h2, .prose-mindful h3 { @apply font-bold mt-5 mb-2; }
-.prose-mindful a { @apply text-wood underline-offset-2; }
-.prose-mindful img { @apply rounded-lg my-4 max-w-full; }
-.prose-mindful blockquote { @apply border-l-2 border-wood pl-4 my-4 italic; }
+.prose-mindful p { @apply my-4; }
+.prose-mindful h1, .prose-mindful h2, .prose-mindful h3 { @apply font-bold tracking-tight mt-7 mb-2; }
+.prose-mindful a { @apply text-wood underline underline-offset-2; }
+.prose-mindful img { @apply my-5 max-w-full; }
+.prose-mindful blockquote { @apply border-l-2 border-ink pl-4 my-5; }

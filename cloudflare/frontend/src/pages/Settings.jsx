@@ -67,7 +67,7 @@ export default function Settings() {
       <button
         onClick={togglePush}
         disabled={pushBusy}
-        className="text-sm bg-wood text-bg font-bold px-3 py-1.5 rounded-md hover:bg-wood-2 disabled:opacity-50"
+        className="text-xs uppercase tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
       >
         {pushBusy ? '…' : push.subscribed ? 'Turn off' : 'Turn on'}
       </button>
@@ -76,15 +76,15 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Link to="/" className="text-sm text-muted hover:text-ink">← Home</Link>
-      <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight mb-8">Settings</h1>
+      <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
+      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none mb-8">Settings</h1>
 
       <Section title="Appearance">
         <Row
           label="Theme"
           desc="Light or dark — both use the same warm wood + cream palette."
           right={
-            <div className="flex bg-bg border border-border rounded-lg p-0.5">
+            <div className="flex border border-ink">
               <SegBtn active={theme === 'light'} onClick={() => changeTheme('light')}>Light</SegBtn>
               <SegBtn active={theme === 'dark'}  onClick={() => changeTheme('dark')}>Dark</SegBtn>
             </div>
@@ -109,7 +109,7 @@ export default function Settings() {
         <Row
           label="Sources"
           desc="Add or remove the websites, newsletters, YouTube channels and X accounts you follow."
-          right={<Link to="/sources" className="text-sm text-wood font-bold hover:underline">Manage →</Link>}
+          right={<Link to="/sources" className="eyebrow text-wood hover:underline">Manage →</Link>}
           bordered
         />
         <Row
@@ -119,7 +119,7 @@ export default function Settings() {
             <button
               onClick={triggerRefresh}
               disabled={refreshState === 'loading'}
-              className="text-sm bg-wood text-bg font-bold px-3 py-1.5 rounded-md hover:bg-wood-2 disabled:opacity-50"
+              className="text-xs uppercase tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
             >
               {refreshState === 'loading' ? 'Refreshing…'
                : refreshState === 'done'  ? '✓ Triggered'
@@ -144,9 +144,9 @@ export default function Settings() {
 
 function Section({ title, children }) {
   return (
-    <section className="mb-6">
-      <h2 className="text-xs uppercase tracking-wider text-wood font-bold mb-2 ml-1">{title}</h2>
-      <div className="bg-elev border border-border rounded-xl px-4">
+    <section className="mb-8">
+      <h2 className="eyebrow text-wood mb-2 pb-2 border-b border-ink">{title}</h2>
+      <div className="bg-elev border border-border px-4">
         {children}
       </div>
     </section>
@@ -157,7 +157,7 @@ function Row({ label, desc, right, bordered }) {
   return (
     <div className={`flex items-center justify-between gap-4 py-4 ${bordered ? 'border-b border-border' : ''}`}>
       <div className="flex-1 min-w-0">
-        <div className="font-medium">{label}</div>
+        <div className="font-bold tracking-tight">{label}</div>
         <div className="text-sm text-muted leading-snug">{desc}</div>
       </div>
       <div className="shrink-0">{right}</div>
@@ -169,7 +169,7 @@ function SegBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-sm rounded-md transition ${active ? 'bg-elev text-ink font-medium' : 'text-muted hover:text-ink'}`}
+      className={`px-3 py-1.5 text-xs uppercase tracking-eyebrow font-bold transition-colors ${active ? 'bg-ink text-bg' : 'text-muted hover:text-ink'}`}
     >
       {children}
     </button>

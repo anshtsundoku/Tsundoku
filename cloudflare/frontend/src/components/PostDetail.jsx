@@ -49,18 +49,18 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
   return (
     <div>
       {/* Sticky local toolbar — Back / Mark read / Bookmark / Open external. */}
-      <div className="flex items-center gap-2 pb-3 mb-4 border-b border-border">
-        <button onClick={onClose} className="text-sm text-muted hover:text-ink">← Back</button>
+      <div className="flex items-center gap-2 pb-3 mb-6 border-b-2 border-ink text-xs uppercase tracking-eyebrow font-bold">
+        <button onClick={onClose} className="text-muted hover:text-ink transition-colors">← Back</button>
         <div className="flex-1" />
         {!post.is_read && (
-          <button onClick={onMarkRead} className="text-xs px-2.5 py-1 rounded-md border border-border text-muted hover:text-ink flex items-center gap-1.5">
+          <button onClick={onMarkRead} className="px-2.5 py-1 border border-border text-muted hover:bg-ink hover:text-bg hover:border-ink transition-colors flex items-center gap-1.5">
             <CheckIcon className="w-3.5 h-3.5" /> Mark read
           </button>
         )}
         <button
           onClick={onToggleBookmark}
-          className={`text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${
-            post.is_bookmarked ? 'border-wood text-wood bg-wood/10' : 'border-border text-muted hover:text-ink'
+          className={`px-2.5 py-1 border flex items-center gap-1.5 transition-colors ${
+            post.is_bookmarked ? 'border-wood bg-wood text-bg' : 'border-border text-muted hover:bg-ink hover:text-bg hover:border-ink'
           }`}
           aria-label="Toggle bookmark"
         >
@@ -68,8 +68,8 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         </button>
         <button
           onClick={onToggleWeekend}
-          className={`text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${
-            post.is_weekend ? 'border-wood text-wood bg-wood/10' : 'border-border text-muted hover:text-ink'
+          className={`px-2.5 py-1 border flex items-center gap-1.5 transition-colors ${
+            post.is_weekend ? 'border-wood bg-wood text-bg' : 'border-border text-muted hover:bg-ink hover:text-bg hover:border-ink'
           }`}
           aria-label="Save for the weekend"
           title="Save for the weekend"
@@ -97,14 +97,14 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
                 alert('link copied');
               } catch { /* swallow */ }
             }}
-            className="text-xs px-2.5 py-1 rounded-md border border-border text-muted hover:text-ink flex items-center gap-1.5"
+            className="px-2.5 py-1 border border-border text-muted hover:bg-ink hover:text-bg hover:border-ink transition-colors flex items-center gap-1.5"
             aria-label="Share"
           >
             <ShareIcon className="w-3.5 h-3.5" /> Share
           </button>
         )}
         {post.url && (
-          <a href={post.url} target="_blank" rel="noreferrer" className="text-xs px-2.5 py-1 rounded-md border border-border text-muted hover:text-ink flex items-center gap-1.5">
+          <a href={post.url} target="_blank" rel="noreferrer" className="px-2.5 py-1 border border-border text-muted hover:bg-ink hover:text-bg hover:border-ink transition-colors flex items-center gap-1.5">
             <ExternalIcon className="w-3.5 h-3.5" /> Open
           </a>
         )}
@@ -112,22 +112,22 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
 
       {/* Content column — comfortable reading width on desktop, full on mobile. */}
       <article className="max-w-3xl mx-auto">
-        <div className="text-xs uppercase tracking-wider text-wood mb-2 font-bold">
+        <div className="eyebrow text-wood mb-3">
           {post.source_name || post.author}
-          {post.read_time_min ? ` · ${post.read_time_min} min` : ''}
+          {post.read_time_min ? ` / ${post.read_time_min} min` : ''}
         </div>
-        {post.title && <h1 className="text-2xl sm:text-3xl font-bold leading-tight mb-4">{post.title}</h1>}
+        {post.title && <h1 className="text-3xl sm:text-4xl font-bold leading-[1.05] tracking-tight mb-5">{post.title}</h1>}
         {post.tldr ? (
-          <div className="bg-elev border-l-2 border-wood pl-3 py-2 mb-6 text-muted italic text-sm whitespace-pre-line">
-            <span className="text-wood font-bold not-italic mr-1">TLDR</span>
+          <div className="border-l-2 border-wood pl-4 py-1 mb-8 text-muted text-sm whitespace-pre-line">
+            <span className="eyebrow text-wood not-italic mr-2">TLDR</span>
             {post.tldr}
           </div>
         ) : (
-          <div className="text-muted/60 text-xs italic mb-6">AI summary unavailable for this post.</div>
+          <div className="text-muted text-xs mb-8">AI summary unavailable for this post.</div>
         )}
 
         {post.video_url && (
-          <div className="aspect-video mb-6 rounded-lg overflow-hidden border border-border bg-bg">
+          <div className="aspect-video mb-8 overflow-hidden border border-border bg-bg">
             <iframe
               src={post.video_url}
               title={post.title || 'video'}
@@ -139,7 +139,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         )}
 
         {post.image_url && !post.video_url && (
-          <img src={post.image_url} alt="" className="rounded-lg mb-6 border border-border max-w-full" />
+          <img src={post.image_url} alt="" className="mb-8 border border-border max-w-full" />
         )}
 
         <div
@@ -149,13 +149,13 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         />
 
         {highlights.length > 0 && (
-          <div className="mt-10 pt-6 border-t border-border">
-            <h3 className="font-bold text-sm uppercase tracking-wider text-wood mb-3">
+          <div className="mt-12 pt-6 border-t-2 border-ink">
+            <h3 className="eyebrow text-wood mb-4">
               Your highlights ({highlights.length})
             </h3>
             <ul className="space-y-2">
               {highlights.map(h => (
-                <li key={h.id} className="text-sm text-muted bg-elev border-l-2 border-wood/60 pl-3 py-1.5">
+                <li key={h.id} className="text-sm text-muted bg-elev border-l-2 border-wood pl-4 py-2">
                   “{h.text}”
                 </li>
               ))}
@@ -168,7 +168,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
       {selection && (
         <button
           onClick={saveHighlight}
-          className="fixed right-6 z-30 bg-wood text-bg shadow-lg rounded-full px-4 py-2.5 flex items-center gap-2 hover:bg-wood-2 transition"
+          className="fixed right-6 z-30 bg-wood text-bg px-4 py-2.5 flex items-center gap-2 hover:bg-wood-2 transition-colors uppercase tracking-eyebrow"
           style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom) + 0.75rem)' }}
         >
           <HighlightIcon className="w-4 h-4" />

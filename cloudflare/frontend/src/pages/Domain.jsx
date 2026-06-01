@@ -105,18 +105,18 @@ export default function Domain() {
 
   return (
     <div>
-      <div className="mb-5">
-        <Link to="/" className="text-sm text-muted hover:text-ink">← Domains</Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">{domain?.name || slug}</h1>
+      <div className="mb-6">
+        <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Domains</Link>
+        <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none">{domain?.name || slug}</h1>
       </div>
 
-      <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
+      <div className="flex gap-0 border-b-2 border-ink mb-6 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition shrink-0 ${
-              tab === t.key ? 'border-wood text-ink' : 'border-transparent text-muted hover:text-ink'
+            className={`px-3 py-2 text-xs font-bold uppercase tracking-eyebrow border-b-2 -mb-0.5 transition-colors shrink-0 ${
+              tab === t.key ? 'border-wood text-wood' : 'border-transparent text-muted hover:text-ink'
             }`}
           >
             {t.label}
