@@ -8,6 +8,7 @@ import TypeFeed from './pages/TypeFeed.jsx';
 import Search   from './pages/Search.jsx';
 import Library  from './pages/Library.jsx';
 import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
+import { applyUiStyle, currentUiStyle, syncUiStyleFromServer } from './lib/uiStyle.js';
 import { GearIcon, HomeIcon, SearchIcon, LibraryIcon } from './components/Icons.jsx';
 
 // Brand mark — a single closed book with a bookmark ribbon. Minimal, apt
@@ -30,15 +31,17 @@ export function Brand({ size = 'md' }) {
 
 export default function App() {
   useEffect(() => {
+    applyUiStyle(currentUiStyle());    // skin first so the palette class is present
     applyTheme(currentTheme());        // instant — from localStorage cache
     syncThemeFromServer();             // background — pulls cross-device preference
+    syncUiStyleFromServer();           // background — same for interface style
   }, []);
   const loc = useLocation();
 
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header
-        className="sticky top-0 z-20 bg-bg border-b-2 border-ink"
+        className="sticky top-0 z-20 bg-bg border-b-2 border-line"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div
@@ -50,7 +53,7 @@ export default function App() {
         >
           <Link to="/" className="flex items-center gap-2.5">
             <span className="text-wood"><Brand size="xl" /></span>
-            <span className="text-2xl sm:text-3xl font-bold uppercase tracking-tight leading-none">Tsundoku</span>
+            <span className="text-2xl sm:text-3xl font-bold tt-title tracking-tight leading-none">Tsundoku</span>
           </Link>
           <div className="flex-1" />
           {loc.pathname !== '/' && (

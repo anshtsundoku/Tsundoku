@@ -35,7 +35,7 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
           style={{ opacity: hintOpacity }}
         >
           <CheckIcon className="w-5 h-5" />
-          <span className="text-xs font-bold uppercase tracking-eyebrow ml-1.5">read</span>
+          <span className="text-xs font-bold tt-label tracking-eyebrow ml-1.5">read</span>
         </div>
       )}
       {dx < -10 && (
@@ -43,7 +43,7 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
           className="absolute inset-y-0 right-0 flex items-center pr-5 text-wood pointer-events-none"
           style={{ opacity: hintOpacity }}
         >
-          <span className="text-xs font-bold uppercase tracking-eyebrow mr-1.5">remove</span>
+          <span className="text-xs font-bold tt-label tracking-eyebrow mr-1.5">remove</span>
           <XIcon className="w-5 h-5" />
         </div>
       )}
@@ -53,19 +53,19 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
         style={{ transform: swipe.transform, transition: swipe.transition, touchAction: 'pan-y' }}
         className="card group bg-elev border border-border p-4 hover:border-ink transition-colors cursor-pointer select-none"
       >
-        <div className="flex items-center gap-2 text-xs text-muted mb-2.5 uppercase tracking-eyebrow">
-          <span className="font-bold text-wood">
+        <div className="flex items-center gap-2 text-xs text-muted mb-2.5 tt-label tracking-eyebrow min-w-0">
+          <span className="font-bold text-wood shrink-0">
             {typeLabel(post.source_type)}
           </span>
-          <span className="text-border">/</span>
+          <span className="sep shrink-0" />
           <span className="truncate font-medium text-ink">{post.source_name || post.author}</span>
-          <span className="text-border">/</span>
-          <span className="tabular-nums">{timeAgo(post.published_at || post.ingested_at)}</span>
-          {post.read_time_min ? <><span className="text-border">/</span><span className="tabular-nums">{post.read_time_min} min</span></> : null}
+          <span className="sep shrink-0" />
+          <span className="tabular-nums shrink-0">{timeAgo(post.published_at || post.ingested_at)}</span>
+          {post.read_time_min ? <><span className="sep shrink-0" /><span className="tabular-nums shrink-0">{post.read_time_min} min</span></> : null}
         </div>
 
         {post.title && (
-          <h3 className="font-bold text-lg leading-snug tracking-tight mb-1.5 group-hover:text-wood transition-colors">{post.title}</h3>
+          <h3 className="font-bold text-lg leading-snug tracking-tight mb-1.5 group-hover:text-wood transition-colors break-words">{post.title}</h3>
         )}
 
         {post.tldr ? (
@@ -97,7 +97,7 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
         ) : null}
 
         <div
-          className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap text-xs uppercase tracking-eyebrow font-bold"
+          className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap text-xs tt-label tracking-eyebrow font-bold"
           onClick={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >

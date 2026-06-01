@@ -20,7 +20,7 @@ export function SkeletonCard() {
 
 export function SkeletonDomain() {
   return (
-    <div className="bg-elev border-r border-b border-ink aspect-square p-4 flex flex-col">
+    <div className="domain-cell bg-elev border-r border-b border-line aspect-square p-4 flex flex-col">
       <div className="w-6 h-6 bg-border skeleton" />
       <div className="flex-1" />
       <div className="h-4 w-2/3 bg-border skeleton mb-1.5" />
@@ -39,7 +39,7 @@ export function SkeletonList({ n = 3 }) {
 
 export function SkeletonGrid({ n = 8 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 border-t border-l border-ink">
+    <div className="domain-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 border-t border-l border-line">
       {Array.from({ length: n }).map((_, i) => <SkeletonDomain key={i} />)}
     </div>
   );

@@ -2,94 +2,215 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================================================
+   INTERFACE STYLES
+   Three skins selectable in Settings. Each defines a full palette (light +
+   dark) plus structural tokens (font, radius, shadow, rule colour, eyebrow
+   tracking, and text-transform for titles/labels). The root <html> carries
+   one of: .ui-wood / .ui-swiss / .ui-bohemian, combined with .dark.
+   :root holds Swiss-light as the pre-hydration default.
+   ======================================================================== */
+
 :root {
-  /* Light theme — Swiss paper: pure white ground, near-black ink, hairline
-     grey rules, one saturated red accent. */
-  --bg:        255 255 255;   /* paper white */
-  --elev:      245 245 245;   /* light grey panel block */
-  --ink:        17  17  17;   /* near-black text + rules */
-  --muted:     115 115 115;   /* secondary grey */
-  --wood:      227   0  15;   /* #E3000F  Swiss red accent */
-  --wood-2:    184   0  12;   /* darker red for hover */
-  --border:    214 214 214;   /* #D6D6D6  hairline grey */
-  --highlight: 255 230   0;   /* signal yellow for highlights */
+  /* default = Swiss light */
+  --bg:        255 255 255;
+  --elev:      245 245 245;
+  --ink:        17  17  17;
+  --muted:     115 115 115;
+  --wood:      227   0  15;
+  --wood-2:    184   0  12;
+  --border:    214 214 214;
+  --highlight: 255 230   0;
+  --line:      var(--ink);
+
+  --font-ui: 'Helvetica Neue', 'Archivo', 'Helvetica', 'Arial', sans-serif;
+  --r-sm: 0; --r-md: 0; --r-lg: 0; --r-xl: 0; --r-2xl: 0; --r-full: 0;
+  --shadow-soft: none;
+  --ls-eyebrow: 0.14em;
+  --tt-title: uppercase;
+  --tt-label: uppercase;
+  --sep: '/';
 }
 
-.dark {
-  /* Dark theme — inverted paper: near-black ground, paper-white ink. */
-  --bg:         10  10  10;   /* #0A0A0A */
-  --elev:       23  23  23;   /* #171717 panel block */
-  --ink:       240 240 240;   /* paper white text */
-  --muted:     150 150 150;   /* secondary grey */
-  --wood:      255  59  48;   /* brighter red so it reads on black */
-  --wood-2:    220  38  38;
-  --border:     42  42  42;   /* #2A2A2A hairline */
-  --highlight: 234 179   8;   /* muted yellow */
+/* ---- SWISS --------------------------------------------------------------- */
+.ui-swiss {
+  --bg: 255 255 255; --elev: 245 245 245; --ink: 17 17 17; --muted: 115 115 115;
+  --wood: 227 0 15; --wood-2: 184 0 12; --border: 214 214 214; --highlight: 255 230 0;
+  --line: var(--ink);
+  --font-ui: 'Helvetica Neue', 'Archivo', 'Helvetica', 'Arial', sans-serif;
+  --r-sm: 0; --r-md: 0; --r-lg: 0; --r-xl: 0; --r-2xl: 0; --r-full: 0;
+  --shadow-soft: none;
+  --ls-eyebrow: 0.14em;
+  --tt-title: uppercase; --tt-label: uppercase;
+  --sep: '/';
+}
+.ui-swiss.dark {
+  --bg: 10 10 10; --elev: 23 23 23; --ink: 240 240 240; --muted: 150 150 150;
+  --wood: 255 59 48; --wood-2: 220 38 38; --border: 42 42 42; --highlight: 234 179 8;
 }
 
-/* iOS / mobile hygiene */
+/* ---- WOOD (the original warm walnut + cream look) ------------------------ */
+.ui-wood {
+  --bg: 245 243 238; --elev: 255 254 251; --ink: 58 46 38; --muted: 110 96 85;
+  --wood: 107 68 35; --wood-2: 150 112 75; --border: 229 221 210; --highlight: 232 198 138;
+  --line: var(--border);
+  --font-ui: 'Calibri', 'Carlito', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --r-sm: 0.125rem; --r-md: 0.375rem; --r-lg: 0.5rem; --r-xl: 0.75rem; --r-2xl: 1rem; --r-full: 9999px;
+  --shadow-soft: 0 1px 2px rgba(0,0,0,0.04), 0 1px 12px rgba(60,40,30,0.05);
+  --ls-eyebrow: 0.06em;
+  --tt-title: none; --tt-label: none;
+  --sep: '·';
+}
+.ui-wood.dark {
+  --bg: 26 22 20; --elev: 34 28 24; --ink: 232 223 211; --muted: 156 141 126;
+  --wood: 176 137 104; --wood-2: 140 105 78; --border: 47 39 34; --highlight: 138 100 47;
+}
+
+/* ---- BOHEMIAN (eclectic warm serif, organic curves, soft elevation) ------ */
+.ui-bohemian {
+  --bg: 247 240 228; --elev: 252 247 238; --ink: 45 35 49; --muted: 120 96 92;
+  --wood: 183 78 54; --wood-2: 158 60 40; --border: 223 205 178; --highlight: 230 178 92;
+  --line: var(--border);
+  --font-ui: 'Fraunces', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --r-sm: 0.375rem; --r-md: 0.625rem; --r-lg: 1rem; --r-xl: 1.5rem; --r-2xl: 2rem; --r-full: 9999px;
+  --shadow-soft: 0 6px 24px rgba(80,40,20,0.10), 0 1px 3px rgba(80,40,20,0.08);
+  --ls-eyebrow: 0.2em;
+  --tt-title: none; --tt-label: none;
+  --sep: '—';
+}
+.ui-bohemian.dark {
+  --bg: 28 22 30; --elev: 38 30 40; --ink: 240 226 210; --muted: 178 150 150;
+  --wood: 214 122 90; --wood-2: 196 100 70; --border: 60 48 60; --highlight: 214 160 90;
+}
+
+/* ===========================================================================
+   GLOBAL HYGIENE + the iPhone horizontal-overflow guard
+   ======================================================================== */
+
 html {
-  -webkit-text-size-adjust: 100%;            /* don't auto-zoom on orientation change */
+  -webkit-text-size-adjust: 100%;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;            /* no rubber-band bouncing the chrome */
+  overscroll-behavior-y: contain;
+  /* Hard guard against sideways scroll in any interface style. `clip` blocks
+     horizontal overflow WITHOUT creating a nested scroll container, so the
+     sticky header and native document scrolling (proper installed-app feel)
+     stay intact. iOS 16.4+ supports clip; `hidden` is the graceful fallback. */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 html, body, #root { height: 100%; }
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+#root { max-width: 100%; }
 
 body {
   @apply bg-bg text-ink antialiased;
-  font-family: 'Helvetica Neue', 'Archivo', 'Helvetica', 'Arial', sans-serif;
+  font-family: var(--font-ui);
   -webkit-tap-highlight-color: transparent;
-  /* Tighten the grotesque slightly and keep numerals lining — a Swiss tell. */
   font-feature-settings: "kern" 1, "liga" 1, "tnum" 1;
 }
 
-/* Prevent iOS Safari from zooming the page when you focus a form field —
-   any input/select with <16px font triggers the zoom; this neutralises it. */
-input, select, textarea {
-  font-size: max(16px, 1rem);
-}
+/* iOS Safari zooms on focus for any <16px field; neutralise it. */
+input, select, textarea { font-size: max(16px, 1rem); }
 
-/* Swiss eyebrow / kicker label — uppercase, tracked, small. */
-.eyebrow {
-  @apply text-xs font-bold uppercase tracking-eyebrow;
-}
+/* Smooth theme/skin transition */
+body, .surface, .card { transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease; }
 
-/* Smooth theme transition */
-body, .surface, .card {
-  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
-}
+/* ===========================================================================
+   SEMANTIC HELPERS (style-aware via the tokens above)
+   ======================================================================== */
 
-/* User-saved highlight inside post body — solid signal-yellow block, no
-   rounding, in keeping with the geometric language. */
-mark.mindful-highlight {
-  @apply bg-highlight/70 text-ink px-0.5;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
+/* Eyebrow / kicker — always uppercase, tracking + spacing vary by style. */
+.eyebrow { @apply text-xs font-bold uppercase; letter-spacing: var(--ls-eyebrow); }
 
-/* Quiet scrollbar (desktop only — iOS hides natively) */
+/* Title / label transforms — Swiss uppercases, Wood/Bohemian keep case. */
+.tt-title { text-transform: var(--tt-title, none); }
+.tt-label { text-transform: var(--tt-label, none); }
+
+/* Inline separator glyph (· / —) chosen per style. */
+.sep { color: rgb(var(--border)); }
+.sep::before { content: var(--sep, '/'); }
+
+/* ---- Home / Skeleton domain grid ---------------------------------------
+   Swiss: a single collapsed modular grid drawn with shared hairlines.
+   Wood / Bohemian: floating rounded cards with gaps + soft shadow. */
+.ui-wood .domain-grid,
+.ui-bohemian .domain-grid { border: 0 !important; gap: 0.75rem; }
+@media (min-width: 640px) {
+  .ui-wood .domain-grid,
+  .ui-bohemian .domain-grid { gap: 1rem; }
+}
+.ui-wood .domain-cell,
+.ui-bohemian .domain-cell {
+  border: 1px solid rgb(var(--border)) !important;
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-soft);
+  background: rgb(var(--elev));
+}
+/* Replace Swiss invert-hover with an accent-border hover for Wood/Bohemian. */
+.ui-wood .domain-cell:hover,
+.ui-bohemian .domain-cell:hover {
+  background: rgb(var(--elev));
+  color: inherit;
+  border-color: rgb(var(--wood)) !important;
+}
+.ui-wood .domain-cell:hover *,
+.ui-bohemian .domain-cell:hover * { color: inherit; }
+.ui-bohemian .domain-cell:hover { transform: translateY(-2px); }
+/* Corner badge sits inside the rounded card edge for Wood/Bohemian. */
+.ui-wood .domain-badge,
+.ui-bohemian .domain-badge { top: 0.5rem; right: 0.5rem; border-radius: var(--r-full); }
+
+/* ---- Home tag row -------------------------------------------------------
+   Swiss collapses the borders; Wood/Bohemian space them into pills. */
+.ui-wood .tag-row,
+.ui-bohemian .tag-row { gap: 0.5rem; }
+.ui-wood .tag,
+.ui-bohemian .tag {
+  margin: 0 !important;
+  border: 1px solid rgb(var(--border)) !important;
+  border-radius: var(--r-full);
+}
+.ui-wood .tag:hover,
+.ui-bohemian .tag:hover {
+  background: rgb(var(--elev));
+  color: inherit;
+  border-color: rgb(var(--wood)) !important;
+}
+.ui-wood .tag:hover *,
+.ui-bohemian .tag:hover * { color: inherit; }
+
+/* Quiet scrollbar (desktop) */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { @apply bg-border; }
 *::-webkit-scrollbar-track { background: transparent; }
 
-/* Skeleton loader — pulse animation. Use class="skeleton" on a plain bg-border
-   rect to get the shimmering effect. */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.5; }
-  50%      { opacity: 0.85; }
-}
-.skeleton {
-  animation: skeleton-pulse 1.6s ease-in-out infinite;
+/* Skeleton shimmer */
+@keyframes skeleton-pulse { 0%,100% { opacity: .5; } 50% { opacity: .85; } }
+.skeleton { animation: skeleton-pulse 1.6s ease-in-out infinite; }
+
+/* User-saved highlight inside post body */
+mark.mindful-highlight {
+  @apply bg-highlight/60 text-ink px-0.5;
+  border-radius: var(--r-sm);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
-/* Reading typography for post body — flush-left, ragged-right, generous
-   leading. Sans throughout, true to the Swiss canon. */
+/* Reading typography for post body */
 .prose-mindful {
   @apply text-ink leading-relaxed;
   font-size: 1.05rem;
+  overflow-wrap: anywhere;
 }
 .prose-mindful p { @apply my-4; }
 .prose-mindful h1, .prose-mindful h2, .prose-mindful h3 { @apply font-bold tracking-tight mt-7 mb-2; }
 .prose-mindful a { @apply text-wood underline underline-offset-2; }
-.prose-mindful img { @apply my-5 max-w-full; }
-.prose-mindful blockquote { @apply border-l-2 border-ink pl-4 my-5; }
+.prose-mindful img { @apply my-5 max-w-full; border-radius: var(--r-lg); }
+.prose-mindful blockquote { @apply border-l-2 border-wood pl-4 my-5; }

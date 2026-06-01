@@ -60,7 +60,7 @@ export default function TypeFeed() {
     <div>
       <div className="mb-6">
         <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
-        <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none">{typeLabel(type)} / New</h1>
+        <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight tt-title leading-none break-words">{typeLabel(type)} / New</h1>
       </div>
 
       {loading ? (

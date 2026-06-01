@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { currentTheme, setTheme as persistTheme } from '../lib/theme.js';
+import { currentUiStyle, setUiStyle } from '../lib/uiStyle.js';
 import { getPushStatus, subscribeToPush, unsubscribeFromPush } from '../lib/push.js';
+
+const UI_STYLE_OPTIONS = [
+  { key: 'wood',     label: 'Wood' },
+  { key: 'swiss',    label: 'Swiss' },
+  { key: 'bohemian', label: 'Bohemian' },
+];
 
 export default function Settings() {
   const [theme, setLocalTheme] = useState(currentTheme());
+  const [uiStyle, setLocalUiStyle] = useState(currentUiStyle());
   const [refreshState, setRefreshState] = useState('idle');  // idle | loading | done | error
 
   // Push notifications state
@@ -15,6 +23,7 @@ export default function Settings() {
   // When the toggle is clicked, apply theme locally AND sync to server so
   // the choice carries across devices.
   const changeTheme = (t) => { setLocalTheme(t); persistTheme(t); };
+  const changeUiStyle = (s) => { setLocalUiStyle(s); setUiStyle(s); };
 
   const reloadPush = async () => {
     try { setPush(await getPushStatus()); } catch (e) { console.warn(e); }
@@ -67,7 +76,7 @@ export default function Settings() {
       <button
         onClick={togglePush}
         disabled={pushBusy}
-        className="text-xs uppercase tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
+        className="text-xs tt-label tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
       >
         {pushBusy ? '…' : push.subscribed ? 'Turn off' : 'Turn on'}
       </button>
@@ -77,14 +86,37 @@ export default function Settings() {
   return (
     <div className="max-w-2xl mx-auto">
       <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
-      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none mb-8">Settings</h1>
+      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight tt-title leading-none mb-8 break-words">Settings</h1>
+
+      <Section title="Interface style">
+        <div className="py-4">
+          <div className="font-bold tracking-tight">Look &amp; feel</div>
+          <div className="text-sm text-muted leading-snug mb-3">
+            Switch the entire interface. Wood is the original warm theme, Swiss is the typographic grid, Bohemian is the eclectic serif look.
+          </div>
+          {/* Full-width segmented control: the three options share the row and
+              never overflow on narrow phones. */}
+          <div className="flex border border-line w-full max-w-full overflow-hidden">
+            {UI_STYLE_OPTIONS.map(o => (
+              <SegBtn
+                key={o.key}
+                active={uiStyle === o.key}
+                onClick={() => changeUiStyle(o.key)}
+                className="flex-1 text-center"
+              >
+                {o.label}
+              </SegBtn>
+            ))}
+          </div>
+        </div>
+      </Section>
 
       <Section title="Appearance">
         <Row
           label="Theme"
-          desc="Light or dark — both use the same warm wood + cream palette."
+          desc="Light or dark — each interface style has its own matching palette."
           right={
-            <div className="flex border border-ink">
+            <div className="flex border border-line">
               <SegBtn active={theme === 'light'} onClick={() => changeTheme('light')}>Light</SegBtn>
               <SegBtn active={theme === 'dark'}  onClick={() => changeTheme('dark')}>Dark</SegBtn>
             </div>
@@ -119,7 +151,7 @@ export default function Settings() {
             <button
               onClick={triggerRefresh}
               disabled={refreshState === 'loading'}
-              className="text-xs uppercase tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
+              className="text-xs tt-label tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
             >
               {refreshState === 'loading' ? 'Refreshing…'
                : refreshState === 'done'  ? '✓ Triggered'
@@ -145,7 +177,7 @@ export default function Settings() {
 function Section({ title, children }) {
   return (
     <section className="mb-8">
-      <h2 className="eyebrow text-wood mb-2 pb-2 border-b border-ink">{title}</h2>
+      <h2 className="eyebrow text-wood mb-2 pb-2 border-b border-line">{title}</h2>
       <div className="bg-elev border border-border px-4">
         {children}
       </div>
@@ -165,11 +197,11 @@ function Row({ label, desc, right, bordered }) {
   );
 }
 
-function SegBtn({ active, onClick, children }) {
+function SegBtn({ active, onClick, children, className = '' }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-xs uppercase tracking-eyebrow font-bold transition-colors ${active ? 'bg-ink text-bg' : 'text-muted hover:text-ink'}`}
+      className={`px-3 py-1.5 text-xs tt-label tracking-eyebrow font-bold transition-colors ${active ? 'bg-ink text-bg' : 'text-muted hover:text-ink'} ${className}`}
     >
       {children}
     </button>

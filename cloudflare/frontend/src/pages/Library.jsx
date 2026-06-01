@@ -37,14 +37,14 @@ export default function Library() {
   return (
     <div className="max-w-3xl mx-auto">
       <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
-      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight uppercase leading-none mb-6">Library</h1>
+      <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight tt-title leading-none mb-6 break-words">Library</h1>
 
-      <div className="flex gap-0 border-b-2 border-ink mb-6 overflow-x-auto">
+      <div className="flex gap-0 border-b-2 border-line mb-6 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-xs font-bold uppercase tracking-eyebrow border-b-2 -mb-0.5 transition-colors shrink-0 ${
+            className={`px-3 py-2 text-xs font-bold tt-label tracking-eyebrow border-b-2 -mb-0.5 transition-colors shrink-0 ${
               tab === t.key ? 'border-wood text-wood' : 'border-transparent text-muted hover:text-ink'
             }`}
           >

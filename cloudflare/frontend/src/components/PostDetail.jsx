@@ -49,7 +49,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
   return (
     <div>
       {/* Sticky local toolbar — Back / Mark read / Bookmark / Open external. */}
-      <div className="flex items-center gap-2 pb-3 mb-6 border-b-2 border-ink text-xs uppercase tracking-eyebrow font-bold">
+      <div className="flex items-center gap-2 pb-3 mb-6 border-b-2 border-line text-xs tt-label tracking-eyebrow font-bold flex-wrap">
         <button onClick={onClose} className="text-muted hover:text-ink transition-colors">← Back</button>
         <div className="flex-1" />
         {!post.is_read && (
@@ -116,7 +116,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
           {post.source_name || post.author}
           {post.read_time_min ? ` / ${post.read_time_min} min` : ''}
         </div>
-        {post.title && <h1 className="text-3xl sm:text-4xl font-bold leading-[1.05] tracking-tight mb-5">{post.title}</h1>}
+        {post.title && <h1 className="text-3xl sm:text-4xl font-bold leading-[1.05] tracking-tight mb-5 break-words">{post.title}</h1>}
         {post.tldr ? (
           <div className="border-l-2 border-wood pl-4 py-1 mb-8 text-muted text-sm whitespace-pre-line">
             <span className="eyebrow text-wood not-italic mr-2">TLDR</span>
@@ -149,7 +149,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         />
 
         {highlights.length > 0 && (
-          <div className="mt-12 pt-6 border-t-2 border-ink">
+          <div className="mt-12 pt-6 border-t-2 border-line">
             <h3 className="eyebrow text-wood mb-4">
               Your highlights ({highlights.length})
             </h3>
@@ -168,7 +168,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
       {selection && (
         <button
           onClick={saveHighlight}
-          className="fixed right-6 z-30 bg-wood text-bg px-4 py-2.5 flex items-center gap-2 hover:bg-wood-2 transition-colors uppercase tracking-eyebrow"
+          className="fixed right-6 z-30 bg-wood text-bg px-4 py-2.5 flex items-center gap-2 hover:bg-wood-2 transition-colors tt-label tracking-eyebrow"
           style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom) + 0.75rem)' }}
         >
           <HighlightIcon className="w-4 h-4" />

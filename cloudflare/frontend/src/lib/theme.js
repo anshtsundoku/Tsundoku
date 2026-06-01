@@ -5,6 +5,7 @@
 // follows you between devices.
 
 import { api } from './api.js';
+import { refreshThemeColor } from './uiStyle.js';
 
 const KEY = 'tsundoku.theme';
 
@@ -18,8 +19,9 @@ export function applyTheme(theme) {
   const t = theme || currentTheme();
   document.documentElement.classList.toggle('dark', t === 'dark');
   localStorage.setItem(KEY, t);
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', t === 'dark' ? '#1A1614' : '#F5F3EE');
+  // Chrome colour follows the active skin's computed --bg (handles all three
+  // interface styles in both light and dark).
+  refreshThemeColor();
 }
 
 // Background fetch: if the server has a theme different from local, switch.
