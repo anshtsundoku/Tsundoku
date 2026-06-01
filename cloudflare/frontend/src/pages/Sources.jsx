@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { typeLabel } from '../lib/labels.js';
 import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
+import DomainModal from '../components/DomainModal.jsx';
 
 // User-facing source types with v1.3 labels. Backend values are unchanged.
 // (Gmail label removed from the picker — existing 'gmail' sources still work,
@@ -24,6 +25,7 @@ export default function Sources() {
   const [loadError, setLoadError] = useState(null);
   const [editing, setEditing] = useState(null);   // source id currently being edited
   const [editForm, setEditForm] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -122,6 +124,17 @@ export default function Sources() {
         </div>
       )}
 
+      {domains.length === 0 ? (
+        <div className="card bg-elev border border-border p-5 mb-8">
+          <p className="text-sm text-muted mb-3">you need to create a domain before adding sources.</p>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 transition-colors"
+          >
+            create a domain
+          </button>
+        </div>
+      ) : (
       <form onSubmit={save} className="card bg-elev border border-border p-5 mb-8">
         <h2 className="eyebrow text-wood mb-4 pb-2 border-b border-line flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Add a source</h2>
         <div className="grid sm:grid-cols-2 gap-3">
@@ -136,21 +149,19 @@ export default function Sources() {
             </select>
           </label>
           <label className="text-sm">
-            <div className="text-muted text-xs uppercase tracking-wider mb-1">Domain</div>
+            <div className="text-muted text-xs uppercase tracking-wider mb-1">Domain <span className="text-wood">*</span></div>
             <select
               className="w-full bg-bg border border-border rounded-md px-3 py-2 text-ink"
               value={form.domain_slug}
-              onChange={e => setForm({ ...form, domain_slug: e.target.value })}
+              onChange={e => {
+                if (e.target.value === '__new__') { setModalOpen(true); return; }
+                setForm({ ...form, domain_slug: e.target.value });
+              }}
               required
             >
-              {domains.length === 0 ? (
-                <option value="">Loading domains…</option>
-              ) : (
-                <>
-                  {!form.domain_slug && <option value="" disabled>Select a domain</option>}
-                  {domains.map(d => <option key={d.id} value={d.slug}>{d.name}</option>)}
-                </>
-              )}
+              {!form.domain_slug && <option value="" disabled>Select a domain</option>}
+              {domains.map(d => <option key={d.id} value={d.slug}>{d.name}</option>)}
+              <option value="__new__">+ new domain</option>
             </select>
           </label>
           <label className="text-sm sm:col-span-2">
@@ -175,7 +186,7 @@ export default function Sources() {
           </label>
         </div>
         <div className="mt-4 flex items-center gap-3 flex-wrap">
-          <button disabled={saving} className="bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 disabled:opacity-50 transition-colors">
+          <button disabled={saving || !form.domain_slug} className="bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 disabled:opacity-50 transition-colors">
             {saving ? (form.type === 'website' ? 'Finding feed…' : 'Adding…') : 'Add source'}
           </button>
           {notice && (
@@ -185,6 +196,7 @@ export default function Sources() {
           )}
         </div>
       </form>
+      )}
 
       <div className="space-y-6">
         {grouped.map(d => (
@@ -276,6 +288,17 @@ export default function Sources() {
           </div>
         ))}
       </div>
+
+      {modalOpen && (
+        <DomainModal
+          onClose={() => setModalOpen(false)}
+          onSaved={(d) => {
+            setModalOpen(false);
+            if (d?.slug) setForm(f => ({ ...f, domain_slug: d.slug }));
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

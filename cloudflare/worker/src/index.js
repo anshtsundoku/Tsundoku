@@ -8,7 +8,7 @@
 
 import { Router, json, handleOptions, withCors } from './lib/router.js';
 import { currentUser } from './lib/auth.js';
-import { listDomains, createDomain }       from './routes/domains.js';
+import { listDomains, createDomain, updateDomain, deleteDomain } from './routes/domains.js';
 import { listSources, createSource, deleteSource, patchSource } from './routes/sources.js';
 import { listPosts, getPost, patchPost, sourceCounts, searchPosts, libraryPosts } from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
@@ -32,6 +32,8 @@ const router = new Router()
   // Domains
   .get('/api/domains',                   listDomains)
   .post('/api/domains',                  createDomain)
+  .patch('/api/domains/:id',             updateDomain)
+  .delete('/api/domains/:id',            deleteDomain)
   // Sources
   .get('/api/sources',                   listSources)
   .post('/api/sources',                  createSource)

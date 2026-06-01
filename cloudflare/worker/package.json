@@ -18,6 +18,7 @@
     "migrate:push":   "wrangler d1 execute tsundoku --remote --file=migrations/0007_push_subs.sql",
     "migrate:0008":   "wrangler d1 execute tsundoku --remote --file=migrations/0008_users_oauth.sql",
     "migrate:0009":   "wrangler d1 execute tsundoku --remote --file=migrations/0009_user_credentials.sql",
+    "migrate:0010":   "wrangler d1 execute tsundoku --remote --file=migrations/0010_user_domains.sql",
     "backup:remote":  "wrangler d1 export tsundoku --remote --output=backups/tsundoku-$(date +%Y%m%d-%H%M%S).sql"
   },
   "devDependencies": {

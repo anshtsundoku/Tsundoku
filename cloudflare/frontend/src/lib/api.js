@@ -23,6 +23,8 @@ async function request(path, opts = {}) {
 export const api = {
   listDomains: () => request('/domains'),
   createDomain: (data) => request('/domains', { method: 'POST', body: JSON.stringify(data) }),
+  updateDomain: (id, data) => request(`/domains/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDomain: (id) => request(`/domains/${id}`, { method: 'DELETE' }),
 
   listSources: (domainSlug) => request(`/sources${domainSlug ? `?domain=${domainSlug}` : ''}`),
   createSource: (data) => request('/sources', { method: 'POST', body: JSON.stringify(data) }),

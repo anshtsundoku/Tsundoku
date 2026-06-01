@@ -9,6 +9,33 @@ import { discoverFeed } from '../services/feedDiscovery.js';
 // compatibility and for podcast/spotify which is RSS-driven under the hood.
 const ALLOWED = new Set(['rss','website','twitter','youtube','newsletter','gmail','podcast']);
 
+// Resolve the target domain for a source, enforcing ownership. Accepts either
+// a numeric domain_id or a domain_slug (the slug is the historical contract the
+// frontend uses; domain_id is supported for API completeness).
+// Returns { domain } on success, or { error, status } where:
+//   400 — neither field supplied (a source must belong to a domain)
+//   403 — the domain exists but belongs to another account
+//   404 — no such domain
+async function resolveOwnedDomain(env, userId, { domain_id, domain_slug }) {
+  if (domain_id !== undefined && domain_id !== null && domain_id !== '') {
+    const row = await first(env, `SELECT id, user_id FROM domains WHERE id = ?`, [domain_id]);
+    if (!row) return { error: 'domain not found', status: 404 };
+    if (row.user_id !== userId) return { error: 'that domain belongs to another account', status: 403 };
+    return { domain: row };
+  }
+  if (domain_slug) {
+    const mine = await first(env,
+      `SELECT id, user_id FROM domains WHERE slug = ? AND user_id = ? LIMIT 1`, [domain_slug, userId]);
+    if (mine) return { domain: mine };
+    // Slug is unique only per-user, so a hit under a different user means it's
+    // simply not yours → 403; no hit anywhere → 404.
+    const other = await first(env, `SELECT 1 AS x FROM domains WHERE slug = ? LIMIT 1`, [domain_slug]);
+    if (other) return { error: 'that domain belongs to another account', status: 403 };
+    return { error: 'domain not found', status: 404 };
+  }
+  return { error: 'domain is required — every source must belong to a domain', status: 400 };
+}
+
 export async function listSources(request, { env, url }) {
   const u = await currentUser(env, request);
   const domain = url.searchParams.get('domain');
@@ -28,15 +55,13 @@ export async function listSources(request, { env, url }) {
 
 export async function createSource(request, { env }) {
   const u = await currentUser(env, request);
-  const { type, identifier, domain_slug, display_name } = await request.json();
+  const { type, identifier, domain_id, domain_slug, display_name } = await request.json();
   if (!ALLOWED.has(type)) return json({ error: 'invalid type' }, 400);
-  if (!identifier || !domain_slug) return json({ error: 'identifier and domain_slug required' }, 400);
+  if (!identifier) return json({ error: 'identifier required' }, 400);
 
-  const d = await first(env,
-    `SELECT id FROM domains WHERE slug = ? AND user_id = ? LIMIT 1`,
-    [domain_slug, u.id]
-  );
-  if (!d) return json({ error: 'domain not found' }, 404);
+  const resolved = await resolveOwnedDomain(env, u.id, { domain_id, domain_slug });
+  if (resolved.error) return json({ error: resolved.error }, resolved.status);
+  const d = resolved.domain;
 
   // For 'website' and 'podcast' we try to auto-discover the RSS feed.
   // Podcast platforms (Spotify, Apple, etc.) almost always have a public RSS;
@@ -89,14 +114,14 @@ export async function patchSource(request, { env, params }) {
     `SELECT * FROM sources WHERE id = ? AND user_id = ?`, [params.id, u.id]);
   if (!existing) return json({ error: 'not found' }, 404);
 
-  // Domain re-pointing.
+  // Domain re-pointing — the target domain must belong to the caller.
   let newDomainId = existing.domain_id;
-  if (body.domain_slug && body.domain_slug !== null) {
-    const d = await first(env,
-      `SELECT id FROM domains WHERE slug = ? AND user_id = ? LIMIT 1`,
-      [body.domain_slug, u.id]);
-    if (!d) return json({ error: 'domain not found' }, 404);
-    newDomainId = d.id;
+  if ((body.domain_id !== undefined && body.domain_id !== null) || body.domain_slug) {
+    const resolved = await resolveOwnedDomain(env, u.id, {
+      domain_id: body.domain_id, domain_slug: body.domain_slug,
+    });
+    if (resolved.error) return json({ error: resolved.error }, resolved.status);
+    newDomainId = resolved.domain.id;
   }
 
   // Identifier change — for 'website' / 'podcast', re-discover feed.

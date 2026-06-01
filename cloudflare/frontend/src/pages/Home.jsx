@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BookPlus } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
-import { DomainIcon } from '../components/Icons.jsx';
+import { DomainIcon, PlusIcon } from '../components/Icons.jsx';
+import DomainModal from '../components/DomainModal.jsx';
 import { typeLabel, VISIBLE_TYPES } from '../lib/labels.js';
 import { SkeletonGrid } from '../components/Skeleton.jsx';
 
@@ -11,6 +13,7 @@ export default function Home() {
   const [typeCounts, setTypeCounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -40,6 +43,30 @@ export default function Home() {
   // (a zero-count pill is still useful: "yes, you have X sources").
   const countByType = Object.fromEntries((typeCounts || []).map(r => [r.type, r.unread_count]));
   const visibleTypes = VISIBLE_TYPES.filter(t => (countByType[t] || 0) >= 0); // keep all
+
+  // Zero-domain empty state: a single, friendly CTA.
+  if (domains.length === 0) {
+    return (
+      <>
+        <div className="flex flex-col items-center text-center py-16 px-4">
+          <BookPlus className="w-16 h-16 text-wood mb-6" aria-hidden="true" />
+          <h2 className="tt-title text-2xl font-bold tracking-tight mb-3">no domains yet.</h2>
+          <p className="text-sm text-muted max-w-sm leading-relaxed mb-6">
+            domains are buckets for the things you read. tech, geopolitics, whatever. start with one.
+          </p>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 transition-colors"
+          >
+            create your first domain
+          </button>
+        </div>
+        {modalOpen && (
+          <DomainModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); load(); }} />
+        )}
+      </>
+    );
+  }
 
   return (
     <div>
@@ -93,7 +120,21 @@ export default function Home() {
             )}
           </Link>
         ))}
+
+        {/* Trailing "+" tile — create another domain. */}
+        <button
+          onClick={() => setModalOpen(true)}
+          aria-label="New domain"
+          className="domain-cell group min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col items-center justify-center text-muted"
+        >
+          <PlusIcon className="w-6 h-6 group-hover:text-bg" />
+          <span className="mt-2 text-xs font-bold tt-label tracking-eyebrow group-hover:text-bg">new domain</span>
+        </button>
       </div>
+
+      {modalOpen && (
+        <DomainModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); load(); }} />
+      )}
     </div>
   );
 }
