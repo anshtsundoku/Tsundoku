@@ -62,6 +62,10 @@ export const api = {
   listSources: (domainSlug) => request(`/sources${domainSlug ? `?domain=${domainSlug}` : ''}`),
   createSource: (data) => request('/sources', { method: 'POST', body: JSON.stringify(data) }),
   patchSource:  (id, data) => request(`/sources/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  patchSourceNotify: (id, enabled) =>
+    request(`/sources/${id}`, { method: 'PATCH', body: JSON.stringify({ notify_enabled: enabled }) }),
+  bulkNotifications: (enabled) =>
+    request('/sources/notifications/bulk', { method: 'POST', body: JSON.stringify({ enabled }) }),
   deleteSource: (id) => request(`/sources/${id}`, { method: 'DELETE' }),
 
   listPosts: ({ domain, type, filter = 'unread', cursor } = {}) => {

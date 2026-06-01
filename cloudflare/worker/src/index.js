@@ -9,7 +9,7 @@
 import { Router, json, handleOptions, withCors } from './lib/router.js';
 import { currentUser } from './lib/auth.js';
 import { listDomains, createDomain, updateDomain, deleteDomain } from './routes/domains.js';
-import { listSources, createSource, deleteSource, patchSource } from './routes/sources.js';
+import { listSources, createSource, deleteSource, patchSource, bulkNotifications } from './routes/sources.js';
 import { listPosts, getPost, patchPost, sourceCounts, searchPosts, libraryPosts } from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
 import { triggerIngest, status, regenerateTldrs, geminiTest, pushAudit } from './routes/admin.js';
@@ -45,6 +45,7 @@ const router = new Router()
   // Sources
   .get('/api/sources',                   listSources)
   .post('/api/sources',                  createSource)
+  .post('/api/sources/notifications/bulk', bulkNotifications)
   .patch('/api/sources/:id',             patchSource)
   .delete('/api/sources/:id',            deleteSource)
   // Posts

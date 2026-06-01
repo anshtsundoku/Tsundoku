@@ -21,6 +21,7 @@
     "migrate:0010":   "wrangler d1 execute tsundoku --remote --file=migrations/0010_user_domains.sql",
     "migrate:0011":   "wrangler d1 execute tsundoku --remote --file=migrations/0011_kv.sql",
     "migrate:0012":   "wrangler d1 execute tsundoku --remote --file=migrations/0012_founder_anshdwiv5.sql",
+    "migrate:0013":   "wrangler d1 execute tsundoku --remote --file=migrations/0013_source_notifications.sql",
     "backup:remote":  "wrangler d1 export tsundoku --remote --output=backups/tsundoku-$(date +%Y%m%d-%H%M%S).sql"
   },
   "devDependencies": {

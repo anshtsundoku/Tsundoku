@@ -119,7 +119,19 @@ export default function Settings() {
           label="Push for every new post"
           desc={pushError ? pushError : pushLabel}
           right={pushCta}
+          bordered={push.subscribed}
         />
+        {push.subscribed && (
+          <Row
+            label="Per-source control"
+            desc="silence specific sources without turning off push entirely."
+            right={
+              <Link to="/sources" className="eyebrow text-wood hover:underline whitespace-nowrap">
+                Manage →
+              </Link>
+            }
+          />
+        )}
         {push.supported && push.configured && push.permission !== 'denied' && (
           <p className="text-xs text-muted pb-3 -mt-2">
             Tip: on iPhone, install Tsundoku to your home screen first (Share → Add to Home Screen). Push only works from the installed app.

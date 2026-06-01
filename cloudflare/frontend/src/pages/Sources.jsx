@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { typeLabel } from '../lib/labels.js';
-import { PlusIcon, TrashIcon } from '../components/Icons.jsx';
+import { PlusIcon, TrashIcon, BellIcon, BellOffIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
+
+function isNotifyOn(s) {
+  return s.notify_enabled !== 0 && s.notify_enabled !== false;
+}
 
 // User-facing source types with v1.3 labels. Backend values are unchanged.
 // (Gmail label removed from the picker — existing 'gmail' sources still work,
@@ -26,6 +30,7 @@ export default function Sources() {
   const [editing, setEditing] = useState(null);   // source id currently being edited
   const [editForm, setEditForm] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [notifyToast, setNotifyToast] = useState(null);
 
   const load = async () => {
     try {
@@ -105,6 +110,38 @@ export default function Sources() {
     await api.deleteSource(id);
     setSources(prev => prev.filter(s => s.id !== id));
   };
+
+  const toggleNotify = async (s) => {
+    const next = !isNotifyOn(s);
+    setSources(prev => prev.map(x => (x.id === s.id ? { ...x, notify_enabled: next ? 1 : 0 } : x)));
+    try {
+      await api.patchSourceNotify(s.id, next);
+    } catch (err) {
+      setNotice({ kind: 'warn', text: err.message });
+      await load();
+    }
+  };
+
+  const bulkNotify = async (enabled) => {
+    try {
+      const { updated } = await api.bulkNotifications(enabled);
+      setNotifyToast(
+        enabled ? `notifying for ${updated} sources.` : `muted ${updated} sources.`,
+      );
+      setTimeout(() => setNotifyToast(null), 3500);
+      await load();
+    } catch (err) {
+      setNotice({ kind: 'warn', text: err.message });
+    }
+  };
+
+  const totalSources = sources.length;
+  const notifyingCount = sources.filter(isNotifyOn).length;
+  const notifyHeaderLine = totalSources === 0
+    ? ''
+    : notifyingCount === totalSources
+      ? `all ${totalSources} sources notifying.`
+      : `${notifyingCount} of ${totalSources} sources notifying.`;
 
   const grouped = domains.map(d => ({
     ...d,
@@ -198,6 +235,31 @@ export default function Sources() {
       </form>
       )}
 
+      {totalSources >= 2 && (
+        <div className="flex items-center justify-between gap-3 mb-4 text-sm">
+          <span className="text-muted">{notifyHeaderLine}</span>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => bulkNotify(true)}
+              className="text-xs tt-label tracking-eyebrow font-bold text-wood hover:underline"
+            >
+              notify all
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkNotify(false)}
+              className="text-xs tt-label tracking-eyebrow font-bold text-muted hover:text-ink hover:underline"
+            >
+              mute all
+            </button>
+          </div>
+        </div>
+      )}
+      {notifyToast && (
+        <p className="text-xs text-muted mb-4 -mt-2">{notifyToast}</p>
+      )}
+
       <div className="space-y-6">
         {grouped.map(d => (
           <div key={d.id}>
@@ -271,6 +333,17 @@ export default function Sources() {
                         {!s.active && <span className="ml-2 text-wood">· paused</span>}
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotify(s)}
+                      className={`p-1.5 transition-colors ${isNotifyOn(s) ? 'text-wood' : 'text-muted'}`}
+                      title={isNotifyOn(s) ? 'notifications on for this source' : 'muted'}
+                      aria-label={isNotifyOn(s) ? 'Mute notifications' : 'Enable notifications'}
+                    >
+                      {isNotifyOn(s)
+                        ? <BellIcon className="w-4 h-4" />
+                        : <BellOffIcon className="w-4 h-4" />}
+                    </button>
                     <button
                       onClick={() => startEdit(s)}
                       className="text-xs font-bold tt-label tracking-eyebrow text-muted hover:text-ink px-2 py-1 transition-colors"

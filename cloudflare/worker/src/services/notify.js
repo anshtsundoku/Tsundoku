@@ -14,16 +14,21 @@ function vapidFromEnv(env) {
   };
 }
 
-export async function notifyNewPost(env, post, domainSlug, sourceType, sourceName) {
+export async function notifyNewPost(env, post, domainSlug, sourceType, sourceName, notifyEnabled = 1) {
   const vapid = vapidFromEnv(env);
   if (!vapid) return; // silently skip if not configured
+
+  // Per-source mute — ingestion still runs; only the push is suppressed.
+  if (!notifyEnabled) return;
 
   // Skip notifications for posts older than 24h (initial backfill of a new
   // source shouldn't blow up your lock screen).
   const publishedAt = post.published_at ? new Date(post.published_at).getTime() : null;
   if (publishedAt && publishedAt < Date.now() - 24 * 60 * 60 * 1000) return;
 
-  const subs = await all(env, `SELECT id, endpoint, p256dh, auth FROM push_subscriptions`);
+  const subs = await all(env,
+    `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`,
+    [post.user_id]);
   if (!subs.length) return;
 
   const title = `Tsundoku · ${domainSlug || 'feed'}`;

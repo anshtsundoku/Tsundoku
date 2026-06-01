@@ -101,8 +101,18 @@ export async function deleteSource(request, { env, params }) {
   return new Response(null, { status: 204 });
 }
 
+// POST /api/sources/notifications/bulk — mute or unmute every source for the caller.
+export async function bulkNotifications(request, { env }) {
+  const u = await currentUser(env, request);
+  const body = await request.json().catch(() => ({}));
+  if (typeof body.enabled !== 'boolean') return json({ error: 'enabled (boolean) required' }, 400);
+  const val = body.enabled ? 1 : 0;
+  const r = await run(env, `UPDATE sources SET notify_enabled = ? WHERE user_id = ?`, [val, u.id]);
+  return json({ updated: r.meta?.changes ?? 0 });
+}
+
 // PATCH /api/sources/:id — edit an existing source.
-// Allowed fields: display_name, identifier, domain_slug, active (boolean).
+// Allowed fields: display_name, identifier, domain_slug, active (boolean), notify_enabled (boolean).
 // If identifier or domain_slug changes for a 'website' source, we re-run
 // feed discovery (silent fail — keeps the old feed_url if discovery fails).
 export async function patchSource(request, { env, params }) {
@@ -143,6 +153,9 @@ export async function patchSource(request, { env, params }) {
   const newActive = typeof body.active === 'boolean'
     ? (body.active ? 1 : 0)
     : existing.active;
+  const newNotifyEnabled = typeof body.notify_enabled === 'boolean'
+    ? (body.notify_enabled ? 1 : 0)
+    : (existing.notify_enabled ?? 1);
 
   const updated = await first(env, `
     UPDATE sources
@@ -150,10 +163,11 @@ export async function patchSource(request, { env, params }) {
            identifier   = ?,
            feed_url     = ?,
            domain_id    = ?,
-           active       = ?
+           active       = ?,
+           notify_enabled = ?
      WHERE id = ? AND user_id = ?
     RETURNING *
-  `, [newDisplayName, newIdentifier, newFeedUrl, newDomainId, newActive, params.id, u.id]);
+  `, [newDisplayName, newIdentifier, newFeedUrl, newDomainId, newActive, newNotifyEnabled, params.id, u.id]);
 
   return json({ ...updated, discovery_warning });
 }

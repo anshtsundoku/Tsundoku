@@ -1,6 +1,9 @@
 // Minimal inline icons for the app chrome (nav, buttons). Domain icons are
 // rendered from Lucide — see DomainIcon at the bottom of this file.
-import { icons as lucideIcons } from 'lucide-react';
+import { icons as lucideIcons, Bell, BellOff } from 'lucide-react';
+
+export const BellIcon = (p) => <Bell {...p} />;
+export const BellOffIcon = (p) => <BellOff {...p} />;
 
 const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
