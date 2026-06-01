@@ -44,11 +44,10 @@ export function readTimeFor(text) {
 
 // Ask the Generative Language API which models this key can actually use for
 // generateContent, and pick a fast (flash) one. Returns a model name or null.
-// `raw` (when true) returns the full filtered name list for diagnostics.
-export async function listGenerateContentModels(env) {
-  if (!env.GEMINI_API_KEY) return { ok: false, reason: 'no_key' };
+export async function listGenerateContentModels(apiKey) {
+  if (!apiKey) return { ok: false, reason: 'no_key' };
   try {
-    const r = await fetch(LIST_ENDPOINT(env.GEMINI_API_KEY));
+    const r = await fetch(LIST_ENDPOINT(apiKey));
     if (!r.ok) {
       const body = await r.text().catch(() => '');
       return { ok: false, reason: 'http', status: r.status, body: body.slice(0, 240) };
@@ -77,8 +76,9 @@ function chooseModel(names) {
 }
 
 // Returns { ok: true, text, model } on success, { ok: false, reason, status?, body? } otherwise.
-async function callGemini(env, prompt, maxTokens = 280) {
-  if (!env.GEMINI_API_KEY) {
+// `apiKey` is the per-user Gemini key (decrypted from the credential vault).
+async function callGemini(apiKey, prompt, maxTokens = 280) {
+  if (!apiKey) {
     return { ok: false, reason: 'no_key' };
   }
 
@@ -93,7 +93,7 @@ async function callGemini(env, prompt, maxTokens = 280) {
   for (const model of order) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetch(ENDPOINT(model, env.GEMINI_API_KEY), {
+        const r = await fetch(ENDPOINT(model, apiKey), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -146,13 +146,13 @@ async function callGemini(env, prompt, maxTokens = 280) {
   // what recovers automatically when Google renames/retires the chain.
   if (!_discoveryDone) {
     _discoveryDone = true;
-    const disc = await listGenerateContentModels(env);
+    const disc = await listGenerateContentModels(apiKey);
     if (disc.ok && disc.names?.length) {
       const picked = chooseModel(disc.names);
       console.warn(`[gemini] discovery: available=${disc.names.slice(0, 12).join(',')} → picked=${picked}`);
       if (picked && !order.includes(picked)) {
         try {
-          const r = await fetch(ENDPOINT(picked, env.GEMINI_API_KEY), {
+          const r = await fetch(ENDPOINT(picked, apiKey), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
@@ -195,22 +195,28 @@ Be specific: names, numbers, claims, conclusions. Skip filler.
 ${title ? `Title: ${title}\n\n` : ''}Content:
 ${text.slice(0, 8000)}`;
 
-export async function summarize(env, { title, text, kind = 'article' }) {
+// `geminiApiKey` is the requesting user's decrypted Gemini key. When the user
+// hasn't configured one, summarization is skipped and tldr is explicitly null
+// (no env fallback, no Workers AI fallback — by design).
+export async function summarize({ title, text, kind = 'article', geminiApiKey }) {
   const read_time_min = readTimeFor(text);
-  if (!text) return { tldr: null, read_time_min };
+  if (!text || !geminiApiKey) return { tldr: null, read_time_min };
 
-  const result = await callGemini(env, TLDR_PROMPT(kind, title, text), 320);
+  const result = await callGemini(geminiApiKey, TLDR_PROMPT(kind, title, text), 320);
   return {
     tldr: result.ok ? result.text : null,   // explicit null on failure
     read_time_min,
   };
 }
 
-export async function summarizeVideo(env, { title, transcript, hasTranscript = true }) {
+export async function summarizeVideo({ title, transcript, hasTranscript = true, geminiApiKey }) {
+  if (!geminiApiKey) {
+    return { detailed: null, tldr: null, read_time_min: readTimeFor(transcript || title || '') };
+  }
   if (!transcript) {
     // Title-only fallback
     if (title) {
-      const r = await callGemini(env, TLDR_PROMPT('video', title, title), 200);
+      const r = await callGemini(geminiApiKey, TLDR_PROMPT('video', title, title), 200);
       return { detailed: '', tldr: r.ok ? r.text : null, read_time_min: 1 };
     }
     return { detailed: '', tldr: null, read_time_min: 1 };
@@ -229,7 +235,7 @@ Title: ${title || 'Untitled'}
 ${sourceLabel.charAt(0).toUpperCase() + sourceLabel.slice(1)}:
 ${transcript.slice(0, 20000)}`;
 
-  const r = await callGemini(env, prompt, 900);
+  const r = await callGemini(geminiApiKey, prompt, 900);
   if (!r.ok) {
     return { detailed: null, tldr: null, read_time_min: readTimeFor(transcript) };
   }
@@ -243,12 +249,13 @@ ${transcript.slice(0, 20000)}`;
 }
 
 // Exposed for /api/admin/gemini-test — pings Gemini with a trivial prompt
-// and reports which model responded (or what went wrong).
-export async function geminiHealth(env) {
-  const r = await callGemini(env, 'Reply with the single word "ok".', 16);
+// and reports which model responded (or what went wrong). `apiKey` is the
+// requesting user's decrypted Gemini key.
+export async function geminiHealth(apiKey) {
+  const r = await callGemini(apiKey, 'Reply with the single word "ok".', 16);
   // Include the live model inventory so "why are TLDRs missing?" is answerable
   // directly from the endpoint without a wrangler tail.
-  const disc = await listGenerateContentModels(env);
+  const disc = await listGenerateContentModels(apiKey);
   return {
     ...r,
     available_models: disc.ok ? disc.names : undefined,

@@ -1,20 +1,14 @@
-// Twitter ingestion inside a Worker.
+// Twitter ingestion inside a Worker, per user.
 //
-// We call x.com's web GraphQL endpoints directly using your session cookies
-// (auth_token + ct0). This is the same technique rettiwt-api uses, but
-// implemented with plain fetch so it works in the Workers runtime.
-//
-// Required secrets:
-//   TWITTER_AUTH_TOKEN  (cookie: auth_token)
-//   TWITTER_CT0         (cookie: ct0; also the CSRF header value)
-// Optional:
-//   TWITTER_KDT, TWITTER_GUEST_ID
-//
-// If those secrets aren't set the worker logs a warning and skips.
+// We call x.com's web GraphQL endpoints directly using each user's own session
+// cookies (auth_token + ct0), decrypted from the credential vault. A user is
+// only polled if BOTH twitter_auth_token_enc and twitter_ct0_enc are set.
 
-import { all } from '../lib/db.js';
+import { all, first } from '../lib/db.js';
 import { summarize } from '../services/summarizer.js';
 import { upsertPost } from './_common.js';
+import { decryptOrNull } from '../lib/userCreds.js';
+import { selectUserBatch, yieldTick } from '../lib/cronFanout.js';
 
 // Twitter web bearer is a well-known public constant used by the web client.
 const BEARER =
@@ -25,21 +19,21 @@ const BEARER =
 const QUERY_USER_BY_SCREEN_NAME = 'sLVLhk0bGj3MVFEKTdax1w';
 const QUERY_USER_TWEETS         = 'V7H0Ap3_Hh2FyS75OCDO3Q';
 
-function buildCookie(env) {
-  const parts = [
-    env.TWITTER_KDT      && `kdt=${env.TWITTER_KDT}`,
-    env.TWITTER_GUEST_ID && `guest_id=${env.TWITTER_GUEST_ID}`,
-    `auth_token=${env.TWITTER_AUTH_TOKEN}`,
-    `ct0=${env.TWITTER_CT0}`,
+// `tw` is the per-user context: { authToken, ct0, kdt?, guestId? }.
+function buildCookie(tw) {
+  return [
+    tw.kdt     && `kdt=${tw.kdt}`,
+    tw.guestId && `guest_id=${tw.guestId}`,
+    `auth_token=${tw.authToken}`,
+    `ct0=${tw.ct0}`,
   ].filter(Boolean).join('; ');
-  return parts;
 }
 
-function commonHeaders(env) {
+function commonHeaders(tw) {
   return {
     'authorization': `Bearer ${BEARER}`,
-    'x-csrf-token':  env.TWITTER_CT0,
-    'cookie':        buildCookie(env),
+    'x-csrf-token':  tw.ct0,
+    'cookie':        buildCookie(tw),
     'content-type':  'application/json',
     'x-twitter-active-user': 'yes',
     'x-twitter-client-language': 'en',
@@ -47,7 +41,7 @@ function commonHeaders(env) {
   };
 }
 
-async function userByScreenName(env, handle) {
+async function userByScreenName(tw, handle) {
   const variables = JSON.stringify({ screen_name: handle, withSafetyModeUserFields: true });
   const features  = JSON.stringify({
     hidden_profile_likes_enabled: true, hidden_profile_subscriptions_enabled: true,
@@ -62,13 +56,13 @@ async function userByScreenName(env, handle) {
     responsive_web_graphql_timeline_navigation_enabled: true,
   });
   const url = `https://x.com/i/api/graphql/${QUERY_USER_BY_SCREEN_NAME}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${encodeURIComponent(features)}`;
-  const r = await fetch(url, { headers: commonHeaders(env) });
+  const r = await fetch(url, { headers: commonHeaders(tw) });
   if (!r.ok) throw new Error(`UserByScreenName ${r.status}`);
   const data = await r.json();
   return data?.data?.user?.result?.rest_id || null;
 }
 
-async function userTweets(env, userId, count = 10) {
+async function userTweets(tw, userId, count = 10) {
   const variables = JSON.stringify({
     userId, count,
     includePromotedContent: false,
@@ -100,7 +94,7 @@ async function userTweets(env, userId, count = 10) {
     responsive_web_enhance_cards_enabled: false,
   });
   const url = `https://x.com/i/api/graphql/${QUERY_USER_TWEETS}/UserTweets?variables=${encodeURIComponent(variables)}&features=${encodeURIComponent(features)}`;
-  const r = await fetch(url, { headers: commonHeaders(env) });
+  const r = await fetch(url, { headers: commonHeaders(tw) });
   if (!r.ok) throw new Error(`UserTweets ${r.status}`);
   const data = await r.json();
   const entries = data?.data?.user?.result?.timeline_v2?.timeline?.instructions
@@ -123,24 +117,49 @@ async function userTweets(env, userId, count = 10) {
 }
 
 export async function runTwitter(env) {
-  if (!env.TWITTER_AUTH_TOKEN || !env.TWITTER_CT0) {
-    console.warn('[twitter] TWITTER_AUTH_TOKEN / TWITTER_CT0 not set; skipping');
-    return;
+  // Only users who have BOTH session cookies stored.
+  const rows = await all(env, `
+    SELECT id FROM users
+     WHERE twitter_auth_token_enc IS NOT NULL AND twitter_ct0_enc IS NOT NULL`);
+  const batch = await selectUserBatch(env, rows.map(r => r.id), 'twitter');
+  for (const uid of batch) {
+    try {
+      await runTwitterForUser(env, uid);
+    } catch (e) {
+      console.warn('[twitter] user', uid, 'failed:', e.message);
+    }
+    await yieldTick();
   }
-  const sources = await all(env, `SELECT * FROM sources WHERE type = 'twitter' AND active = 1`);
-  // Process at most N per cron tick to stay polite — handles are picked
-  // round-robin by oldest last_polled_at.
+}
+
+async function runTwitterForUser(env, userId) {
+  const u = await first(env, `
+    SELECT gemini_api_key_enc, twitter_auth_token_enc, twitter_ct0_enc
+      FROM users WHERE id = ?`, [userId]);
+  const authToken = await decryptOrNull(env, u?.twitter_auth_token_enc);
+  const ct0       = await decryptOrNull(env, u?.twitter_ct0_enc);
+  if (!authToken || !ct0) return;   // can't poll without both cookies
+
+  const geminiApiKey = await decryptOrNull(env, u?.gemini_api_key_enc);
+  // KDT / GUEST_ID remain optional shared extras from env, if present.
+  const tw = { authToken, ct0, kdt: env.TWITTER_KDT, guestId: env.TWITTER_GUEST_ID };
+
+  const sources = await all(env,
+    `SELECT * FROM sources WHERE user_id = ? AND type = 'twitter' AND active = 1`, [userId]);
+  // Process at most N per tick (oldest-polled first) to stay polite.
   const max = Number(env.TWITTER_POLL_HANDLES_PER_TICK || 5);
   sources.sort((a, b) => (a.last_polled_at || '').localeCompare(b.last_polled_at || ''));
-  const batch = sources.slice(0, max);
+  const handleBatch = sources.slice(0, max);
 
-  for (const s of batch) {
+  for (const s of handleBatch) {
     try {
-      const uid = await userByScreenName(env, s.identifier);
+      const uid = await userByScreenName(tw, s.identifier);
       if (!uid) { console.warn('[twitter] user not found', s.identifier); continue; }
-      const tweets = await userTweets(env, uid, 10);
+      const tweets = await userTweets(tw, uid, 10);
       for (const t of tweets) {
-        const { tldr, read_time_min } = await summarize(env, { text: t.full_text || '', kind: 'tweet' });
+        const { tldr, read_time_min } = await summarize({
+          text: t.full_text || '', kind: 'tweet', geminiApiKey,
+        });
         await upsertPost(env, {
           source_id:   s.id,
           external_id: t.id,
@@ -155,9 +174,8 @@ export async function runTwitter(env) {
           published_at: t.created_at ? new Date(t.created_at).toISOString() : null,
         });
       }
-      console.log(`[twitter] @${s.identifier} ok (${tweets.length})`);
-      // Friendly pacing.
-      await new Promise(r => setTimeout(r, 800));
+      console.log(`[twitter] u${userId} @${s.identifier} ok (${tweets.length})`);
+      await new Promise(r => setTimeout(r, 800));   // friendly pacing
     } catch (e) {
       console.warn(`[twitter] @${s.identifier} failed:`, e.message);
     }

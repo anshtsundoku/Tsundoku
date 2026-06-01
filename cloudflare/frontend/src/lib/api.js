@@ -56,4 +56,9 @@ export const api = {
   // Cross-device preferences (theme).
   getPrefs:   () => request('/prefs'),
   patchPrefs: (data) => request('/prefs', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Credential vault. getCredentials returns booleans only (never values).
+  getCredentials:   () => request('/credentials'),
+  patchCredential:  (kind, value) => request('/credentials', { method: 'PATCH', body: JSON.stringify({ kind, value }) }),
+  deleteCredential: (kind) => request(`/credentials/${kind}`, { method: 'DELETE' }),
 };

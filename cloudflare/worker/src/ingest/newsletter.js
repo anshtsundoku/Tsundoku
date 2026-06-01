@@ -12,6 +12,7 @@ import { summarize } from '../services/summarizer.js';
 import { stripHtml } from '../lib/textClean.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
 import { upsertPost } from './_common.js';
+import { decryptOrNull } from '../lib/userCreds.js';
 
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
@@ -139,10 +140,39 @@ async function matchSources(env, msg, fromAddr, labelMap) {
 }
 
 export async function runNewsletters(env) {
+  // Per-user app-password IMAP is the multi-tenant target, but isn't built yet.
+  // Surface who is waiting on it so it's visible in logs.
+  const waiting = await all(env, `SELECT id FROM users WHERE gmail_imap_pass_enc IS NOT NULL`);
+  if (waiting.length) {
+    console.warn(`[gmail] per-user IMAP ingestion not yet implemented; ${waiting.length} user(s) waiting`);
+  }
+
+  // Legacy single-account OAuth path, gated behind a feature flag during the
+  // migration. Set the wrangler var ENABLE_GMAIL_OAUTH="1" to keep it running.
+  if (env.ENABLE_GMAIL_OAUTH !== '1') return;
   if (!env.GMAIL_REFRESH_TOKEN || !env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET) {
-    console.warn('[gmail] OAuth secrets missing; skipping');
+    console.warn('[gmail] OAuth enabled but secrets missing; skipping');
     return;
   }
+  await runNewslettersOAuth(env);
+}
+
+// Per-user credential cache for the OAuth path (one Gmail account can deliver
+// to newsletter sources owned by different users; each gets their own keys).
+async function loadCreds(env, userId, cache) {
+  if (cache.has(userId)) return cache.get(userId);
+  const u = await first(env,
+    `SELECT gemini_api_key_enc, yt_api_key_enc FROM users WHERE id = ?`, [userId]);
+  const creds = {
+    geminiApiKey: await decryptOrNull(env, u?.gemini_api_key_enc),
+    ytApiKey:     await decryptOrNull(env, u?.yt_api_key_enc),
+  };
+  cache.set(userId, creds);
+  return creds;
+}
+
+async function runNewslettersOAuth(env) {
+  const credCache = new Map();
   const token = await getAccessToken(env);
   const labelMap = await fetchLabelMap(token);
 
@@ -172,13 +202,16 @@ export async function runNewsletters(env) {
       const body = text || stripHtml(html);
       if (!body) continue;
 
-      const { tldr, read_time_min: textMin } = await summarize(env,
-        { title: subject, text: body, kind: 'newsletter' }
+      // Summarize with the matched source owner's keys.
+      const ownerId = sources[0].user_id;
+      const { geminiApiKey, ytApiKey } = await loadCreds(env, ownerId, credCache);
+      const { tldr, read_time_min: textMin } = await summarize(
+        { title: subject, text: body, kind: 'newsletter', geminiApiKey }
       );
 
       // If the newsletter embeds YouTube videos, add their actual runtimes
       // so the "N min" badge reflects total time-to-consume, not just text.
-      const embeddedVideoMin = await totalEmbeddedYoutubeMin(html, env.YOUTUBE_API_KEY);
+      const embeddedVideoMin = await totalEmbeddedYoutubeMin(html, ytApiKey);
       const read_time_min = (textMin || 0) + embeddedVideoMin;
 
       // The same message can match more than one source (e.g. a label AND

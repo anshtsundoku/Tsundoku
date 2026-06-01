@@ -6,7 +6,9 @@
 // /api proxy. Leave the token off → 401.
 
 import { json } from '../lib/router.js';
-import { all, run } from '../lib/db.js';
+import { all, first, run } from '../lib/db.js';
+import { currentUser } from '../lib/auth.js';
+import { decryptOrNull } from '../lib/userCreds.js';
 import { summarize, geminiHealth } from '../services/summarizer.js';
 import { stripHtml } from '../lib/textClean.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
@@ -61,13 +63,25 @@ export async function regenerateTldrs(req, { env, ctx }) {
   ctx.waitUntil((async () => {
     const rows = await all(env, `
       SELECT p.id, p.title, p.content_html, p.content_text, p.read_time_min,
-             s.type AS source_type
+             p.user_id, s.type AS source_type
         FROM posts p
         JOIN sources s ON s.id = p.source_id
        WHERE (p.tldr IS NULL OR p.tldr = '' OR p.tldr LIKE '(raw)%')
        ORDER BY p.ingested_at DESC
        LIMIT ?
     `, [limit]);
+    const credCache = new Map();
+    const credsFor = async (userId) => {
+      if (credCache.has(userId)) return credCache.get(userId);
+      const u = await first(env,
+        `SELECT gemini_api_key_enc, yt_api_key_enc FROM users WHERE id = ?`, [userId]);
+      const creds = {
+        geminiApiKey: await decryptOrNull(env, u?.gemini_api_key_enc),
+        ytApiKey:     await decryptOrNull(env, u?.yt_api_key_enc),
+      };
+      credCache.set(userId, creds);
+      return creds;
+    };
     let updated = 0;
     for (const p of rows) {
       try {
@@ -80,8 +94,9 @@ export async function regenerateTldrs(req, { env, ctx }) {
         const kind = p.source_type === 'newsletter' ? 'newsletter'
                    : p.source_type === 'podcast'   ? 'podcast episode'
                    : 'article';
-        const { tldr, read_time_min: textMin } = await summarize(env, {
-          title: p.title, text: cleanedText, kind,
+        const { geminiApiKey, ytApiKey } = await credsFor(p.user_id);
+        const { tldr, read_time_min: textMin } = await summarize({
+          title: p.title, text: cleanedText, kind, geminiApiKey,
         });
         if (!tldr) continue;
 
@@ -89,7 +104,7 @@ export async function regenerateTldrs(req, { env, ctx }) {
         // embedded videos' real runtimes (the same fix from the live ingest
         // path, applied retroactively).
         const embedMin = (p.source_type === 'newsletter' || p.source_type === 'website')
-          ? await totalEmbeddedYoutubeMin(p.content_html, env.YOUTUBE_API_KEY)
+          ? await totalEmbeddedYoutubeMin(p.content_html, ytApiKey)
           : 0;
         const newReadTime = (textMin || 0) + embedMin;
 
@@ -116,7 +131,12 @@ async function safeJson(req) {
 // or why it failed. Use this to debug "why are my TLDRs missing?"
 export async function geminiTest(req, { env }) {
   if (!checkAuth(req, env)) return json({ error: 'unauthorized' }, 401);
-  const r = await geminiHealth(env);
+  // Gemini keys are now per-user; test with the requesting user's key.
+  const u = await currentUser(env, req);
+  const row = await first(env, `SELECT gemini_api_key_enc FROM users WHERE id = ?`, [u.id]);
+  const apiKey = await decryptOrNull(env, row?.gemini_api_key_enc);
+  if (!apiKey) return json({ ok: false, reason: 'no_key', hint: 'set your Gemini key in Settings → Connect sources' });
+  const r = await geminiHealth(apiKey);
   return json(r);
 }
 

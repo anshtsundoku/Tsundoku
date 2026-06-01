@@ -16,6 +16,7 @@ import { triggerIngest, status, regenerateTldrs, geminiTest, pushAudit } from '.
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
 import { googleAuth, logout, me }          from './routes/auth.js';
+import { getCredentials, patchCredential, deleteCredential } from './routes/credentials.js';
 
 import { runRss }         from './ingest/rss.js';
 import { runYoutube }     from './ingest/youtube.js';
@@ -29,6 +30,10 @@ const router = new Router()
   .post('/api/auth/google',              googleAuth)
   .post('/api/auth/logout',              logout)
   .get('/api/auth/me',                   me)
+  // Credential vault (per-user encrypted third-party keys)
+  .get('/api/credentials',               getCredentials)
+  .patch('/api/credentials',             patchCredential)
+  .delete('/api/credentials/:kind',      deleteCredential)
   // Domains
   .get('/api/domains',                   listDomains)
   .post('/api/domains',                  createDomain)
@@ -99,10 +104,10 @@ export default {
     const cron = event.cron;
     console.log(`[cron] ${cron} firing at ${new Date().toISOString()}`);
     try {
-      if (cron === '*/5 * * * *')  ctx.waitUntil(runRss(env));
-      if (cron === '*/15 * * * *') ctx.waitUntil(runYoutube(env));
-      if (cron === '*/20 * * * *') ctx.waitUntil(runTwitter(env));
-      if (cron === '*/10 * * * *') ctx.waitUntil(runNewsletters(env));
+      if (cron === '*/5 * * * *')  ctx.waitUntil(runRss(env, ctx));
+      if (cron === '*/15 * * * *') ctx.waitUntil(runYoutube(env, ctx));
+      if (cron === '*/20 * * * *') ctx.waitUntil(runTwitter(env, ctx));
+      if (cron === '*/10 * * * *') ctx.waitUntil(runNewsletters(env, ctx));
       if (cron === '0 3 * * *')    ctx.waitUntil(runCleanup(env));
     } catch (e) {
       console.error('[cron] dispatch failed', e);
