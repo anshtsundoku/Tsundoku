@@ -120,6 +120,31 @@ export async function geminiTest(req, { env }) {
   return json(r);
 }
 
+// GET /api/admin/push-audit — one-shot integrity check on push_subscriptions.
+// For each subscription, reports its user_id and whether that user still
+// exists (catches orphaned rows left by deleted/renumbered users). Admin-gated
+// by ADMIN_TOKEN (and, post Phase 2, also behind the session auth gate).
+export async function pushAudit(req, { env }) {
+  if (!checkAuth(req, env)) return json({ error: 'unauthorized' }, 401);
+  const rows = await all(env, `
+    SELECT ps.id, ps.user_id, ps.endpoint, ps.created_at,
+           CASE WHEN u.id IS NULL THEN 0 ELSE 1 END AS user_exists
+      FROM push_subscriptions ps
+      LEFT JOIN users u ON u.id = ps.user_id
+     ORDER BY ps.id
+  `);
+  const subscriptions = rows.map(r => ({
+    id: r.id,
+    user_id: r.user_id,
+    user_exists: Boolean(r.user_exists),
+    // Truncated so the full push token (a secret-ish value) never leaks in logs.
+    endpoint_preview: typeof r.endpoint === 'string' ? `${r.endpoint.slice(0, 40)}…` : null,
+    created_at: r.created_at,
+  }));
+  const orphaned = subscriptions.filter(s => !s.user_exists).length;
+  return json({ total: subscriptions.length, orphaned, subscriptions });
+}
+
 // GET /api/admin/status → quick health view
 export async function status(_req, { env }) {
   const { results: domains } = await env.DB.prepare(`

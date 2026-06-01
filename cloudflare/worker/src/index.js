@@ -6,12 +6,13 @@
 //
 // D1 is bound as env.DB. Secrets are bound as env.<name> (see wrangler.toml).
 
-import { Router, json, handleOptions } from './lib/router.js';
+import { Router, json, handleOptions, withCors } from './lib/router.js';
+import { currentUser } from './lib/auth.js';
 import { listDomains, createDomain }       from './routes/domains.js';
 import { listSources, createSource, deleteSource, patchSource } from './routes/sources.js';
 import { listPosts, getPost, patchPost, sourceCounts, searchPosts, libraryPosts } from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
-import { triggerIngest, status, regenerateTldrs, geminiTest } from './routes/admin.js';
+import { triggerIngest, status, regenerateTldrs, geminiTest, pushAudit } from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
 import { googleAuth, logout, me }          from './routes/auth.js';
@@ -61,11 +62,34 @@ const router = new Router()
   .post('/api/admin/trigger-ingest/:pipeline', triggerIngest)
   .post('/api/admin/regenerate-tldrs',   regenerateTldrs)
   .get('/api/admin/gemini-test',         geminiTest)
+  .get('/api/admin/push-audit',          pushAudit)
   .post('/api/admin/vapid-gen',          vapidGen);
+
+// Routes that do NOT require a logged-in user. Everything else is gated by the
+// auth check in fetch() below (which short-circuits with 401).
+const ANONYMOUS_ROUTES = new Set([
+  'GET /api/health',
+  'POST /api/auth/google',
+  'POST /api/auth/logout',
+]);
 
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return handleOptions();
+
+    // Auth gate: require a valid session on every route except the anonymous
+    // allowlist. Routes still call currentUser() themselves to get the user id;
+    // the result is memoized per-request, so this gate adds no extra D1 hit.
+    const url = new URL(request.url);
+    const routeKey = `${request.method} ${url.pathname}`;
+    if (!ANONYMOUS_ROUTES.has(routeKey)) {
+      try {
+        await currentUser(env, request);
+      } catch (e) {
+        return withCors(json({ error: 'unauthorized' }, (e && e.status) || 401));
+      }
+    }
+
     return router.handle(request, env, ctx);
   },
 

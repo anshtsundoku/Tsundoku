@@ -1,7 +1,7 @@
 // Google Sign-In → first-party session cookie.
 //
-// Phase 1 plumbing only: these routes exist and work, but no other route is
-// wired to require them yet (currentUser() still returns the single-user shim).
+// Phase 2 (active): the auth gate in index.js now requires a valid session on
+// every route except this handler, /api/auth/logout, and /api/health.
 //
 // Flow:
 //   1. The client gets a Google ID token (One Tap / GIS button) and POSTs it
@@ -156,7 +156,30 @@ export async function googleAuth(request, { env }) {
   const { sub, email, name, picture } = claims;
   if (!sub || !email) return json({ error: 'token missing sub/email' }, 400);
 
-  const user = await upsertGoogleUser(env, { sub, email, name, picture });
+  // Founder adoption: the first time the OWNER_EMAIL account signs in, claim
+  // the bootstrap row (id=1) so all pre-existing single-user data carries over.
+  // Guarded to a Google-verified email match, and only while id=1's google_sub
+  // is still NULL (i.e. not yet adopted). On later logins the owner falls
+  // through to the normal upsert, which finds id=1 by its google_sub.
+  let user = null;
+  const ownerEmail = env.OWNER_EMAIL ? env.OWNER_EMAIL.toLowerCase() : null;
+  const emailVerified = claims.email_verified !== false;
+  if (ownerEmail && emailVerified && email.toLowerCase() === ownerEmail) {
+    const owner = await first(env, `SELECT id, google_sub FROM users WHERE id = 1`);
+    if (owner && owner.google_sub == null) {
+      await run(env,
+        `UPDATE users SET google_sub = ?, email = ?, name = ?, picture = ? WHERE id = 1`,
+        [sub, email, name || null, picture || null]);
+      user = { id: 1, email, name: name || null, picture: picture || null };
+    }
+  }
+
+  // Everyone else (and the owner on subsequent logins) goes through the normal
+  // upsert keyed on google_sub.
+  if (!user) {
+    user = await upsertGoogleUser(env, { sub, email, name, picture });
+  }
+
   const token = await sign({ uid: user.id, sub, email }, SESSION_MAX_AGE, env.JWT_SECRET);
 
   const res = json({ user: { id: user.id, email: user.email, name: user.name, picture: user.picture } });

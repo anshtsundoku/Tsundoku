@@ -1,52 +1,71 @@
 // ============================================================================
-// PLANNED CUTOVER (Phase 2) — not active yet.
+// User-identity boundary — JWT session auth (Phase 2, ACTIVE).
 //
-// Phase 1 (done) laid the plumbing: Google Sign-In routes (routes/auth.js),
-// HS256 session cookies (lib/jwt.js), AES-GCM per-user credential storage
-// (lib/crypto.js), and the users.google_sub / *_enc columns (migrations 0008,
-// 0009). None of it is enforced yet — every route still flows through the
-// single-user shim below.
+// currentUser() resolves the requester from the "session" cookie that
+// /api/auth/google issued:
+//   1. Read the "session" cookie off the request.
+//   2. Verify the HS256 JWT (lib/jwt.js) with env.JWT_SECRET.
+//   3. Look the user up in D1 by the token's `uid` claim.
+// It throws a 401-tagged Error when there is no valid session; the auth gate in
+// index.js catches that and short-circuits the request with 401.
 //
-// In Phase 2, currentUser() becomes the ONLY thing that changes:
-//   1. Read the "session" cookie from the request.
-//   2. verify(token, env.JWT_SECRET) (lib/jwt.js). On success, look up the user
-//      by payload.uid and return { id, email }.
-//   3. On no/invalid cookie: during migration, fall back to the bootstrap user
-//      (behind an env flag like env.SINGLE_USER_FALLBACK) so existing devices
-//      keep working; once all clients log in, drop the fallback and return 401.
-// Every route already calls currentUser(env, request), so no other code moves.
+// currentUserOptional() returns null instead of throwing, for routes that want
+// to handle anonymous callers gracefully.
 //
-// NOTE: the Cloudflare Access note below is superseded — we chose first-party
-// Google Sign-In + our own JWT cookie instead of Access JWT headers.
+// Founder adoption (see routes/auth.js): the first Google sign-in with
+// env.OWNER_EMAIL adopts the bootstrap row (id=1), so all pre-existing
+// single-user data (domains, sources, posts, highlights, push subs) carries
+// over to that Google identity.
 // ============================================================================
 
-// Auth / user-identity boundary.
-//
-// Every route should call `currentUser(env, request)` to discover whose data
-// it's acting on, then pass that user's id into queries — never reach for
-// "the first user" inline.
-//
-// Why this layer exists even in single-tenant mode:
-//   When we eventually add multi-tenancy via Cloudflare Access (Google email
-//   login), Access injects an "Cf-Access-Jwt-Assertion" header on every request.
-//   The JWT's `email` claim identifies the requester. The only code that
-//   needs to change is this file: parse the JWT, look up the user by email
-//   (auto-create on first sight). Every route already calls currentUser, so
-//   no other changes are required.
-//
-// Today: single-tenant. We return the one row in `users` regardless of who's
-// asking. The `request` argument is unused but kept in the signature so the
-// future swap is mechanical.
-
 import { first } from './db.js';
+import { verify } from './jwt.js';
 
-export async function currentUser(env, _request) {
-  // TODO(multi-tenant): replace with JWT parse + user lookup/upsert by email.
-  const u = await first(env, `SELECT id, email FROM users LIMIT 1`);
-  if (!u) {
-    // Schema is bootstrapped during migrate; this only happens if someone
-    // wipes the users table manually.
-    throw new Error('no user — run migrate:remote');
+const SESSION_COOKIE = 'session';
+
+// Memoize the resolved user per request so the auth gate and the route handler
+// don't each hit D1. Keyed on the Request object, so entries are GC'd with it.
+const _perRequestUser = new WeakMap();
+
+function readSessionToken(request) {
+  const header = request?.headers?.get('Cookie') || '';
+  for (const part of header.split(';')) {
+    const i = part.indexOf('=');
+    if (i === -1) continue;
+    if (part.slice(0, i).trim() === SESSION_COOKIE) {
+      return decodeURIComponent(part.slice(i + 1).trim());
+    }
   }
-  return u;
+  return null;
+}
+
+// Resolve the current user from the session cookie. Returns the row
+// { id, email, name, picture } or null. Never throws.
+export async function currentUserOptional(env, request) {
+  if (request && _perRequestUser.has(request)) return _perRequestUser.get(request);
+
+  let user = null;
+  const token = readSessionToken(request);
+  if (token) {
+    const payload = await verify(token, env.JWT_SECRET);
+    if (payload?.uid) {
+      user = (await first(env,
+        `SELECT id, email, name, picture FROM users WHERE id = ?`, [payload.uid])) || null;
+    }
+  }
+
+  if (request) _perRequestUser.set(request, user);
+  return user;
+}
+
+// Resolve the current user, or throw a 401-tagged Error if the session is
+// missing/invalid. The auth gate in index.js translates the throw into a 401.
+export async function currentUser(env, request) {
+  const user = await currentUserOptional(env, request);
+  if (!user) {
+    const err = new Error('unauthorized');
+    err.status = 401;
+    throw err;
+  }
+  return user;
 }
