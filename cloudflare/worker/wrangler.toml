@@ -24,7 +24,7 @@ crons = [
 TWITTER_POLL_HANDLES_PER_TICK = "5"
 RSS_MAX_ITEMS = "20"
 YOUTUBE_MAX_PER_CHANNEL = "5"
-OWNER_EMAIL = "ansh.tsundoku@gmail.com"
+OWNER_EMAIL = "anshdwiv5@gmail.com"
 
 # Secrets (set with `wrangler secret put <NAME>`):
 #   GEMINI_API_KEY
