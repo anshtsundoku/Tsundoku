@@ -214,3 +214,12 @@ mark.mindful-highlight {
 .prose-mindful a { @apply text-wood underline underline-offset-2; }
 .prose-mindful img { @apply my-5 max-w-full; border-radius: var(--r-lg); }
 .prose-mindful blockquote { @apply border-l-2 border-wood pl-4 my-5; }
+
+/* Onboarding interstitials — fade only, no bounce */
+@keyframes onboarding-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.onboarding-fade-in {
+  animation: onboarding-fade 300ms ease-out;
+}

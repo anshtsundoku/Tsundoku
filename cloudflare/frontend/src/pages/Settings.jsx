@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Youtube, Mail, Twitter, Sparkles, Check, ChevronDown } from 'lucide-react';
+import { Youtube, Mail, Twitter, Sparkles } from 'lucide-react';
 import { api, clearToken } from '../lib/api.js';
 import { useUser } from '../App.jsx';
 import { logout } from '../lib/auth.js';
@@ -313,38 +313,68 @@ function DeleteAccountModal({ onClose }) {
 }
 
 function ConnectSources() {
-  const [status, setStatus] = useState(null);   // { yt, gmail, twitter, gemini } booleans
-  const [open, setOpen] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [editingConnected, setEditingConnected] = useState(null);
 
   useEffect(() => {
     api.getCredentials().then(setStatus).catch(() => setStatus({}));
   }, []);
 
-  const toggle = (k) => setOpen(o => (o === k ? null : k));
-  const onSaved = (k) => { setStatus(s => ({ ...s, [k]: true })); setOpen(null); };
-  const onDisconnected = (k) => setStatus(s => ({ ...s, [k]: false }));
+  const onSaved = (k) => {
+    setStatus(s => ({ ...s, [k]: true }));
+    setEditingConnected(null);
+  };
+  const onDisconnected = (k) => {
+    setStatus(s => ({ ...s, [k]: false }));
+    setEditingConnected(null);
+  };
+
+  const pending = CREDENTIAL_CARDS.filter(c => !status?.[c.kind]);
+  const connected = CREDENTIAL_CARDS.filter(c => status?.[c.kind]);
 
   return (
     <Section title="Connect sources">
-      {CREDENTIAL_CARDS.map(card => (
-        <CredentialCard
-          key={card.kind}
-          card={card}
-          configured={Boolean(status?.[card.kind])}
-          open={open === card.kind}
-          onToggle={() => toggle(card.kind)}
-          onSaved={onSaved}
-          onDisconnected={onDisconnected}
-        />
-      ))}
+      {pending.length > 0 && (
+        <>
+          <h3 className="eyebrow text-muted text-[10px] pt-3 pb-2 border-b border-border">Pending</h3>
+          {pending.map(card => (
+            <PendingCredentialForm key={card.kind} card={card} onSaved={onSaved} />
+          ))}
+        </>
+      )}
+      {connected.length > 0 && (
+        <>
+          <h3 className="eyebrow text-muted text-[10px] pt-4 pb-2 border-b border-border">Connected</h3>
+          <div className="py-3 flex flex-wrap gap-2">
+            {connected.map(card => (
+              <ConnectedChip
+                key={card.kind}
+                card={card}
+                active={editingConnected === card.kind}
+                onSelect={() => setEditingConnected(k => (k === card.kind ? null : card.kind))}
+                onDisconnected={() => onDisconnected(card.kind)}
+              />
+            ))}
+          </div>
+          {editingConnected && (
+            <PendingCredentialForm
+              card={CREDENTIAL_CARDS.find(c => c.kind === editingConnected)}
+              onSaved={onSaved}
+              onDisconnect={() => onDisconnected(editingConnected)}
+              updateMode
+            />
+          )}
+        </>
+      )}
     </Section>
   );
 }
 
-function CredentialCard({ card, configured, open, onToggle, onSaved, onDisconnected }) {
+function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode }) {
   const [fields, setFields] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  if (!card) return null;
   const Icon = card.Icon;
 
   const canSave = card.twitter
@@ -373,7 +403,7 @@ function CredentialCard({ card, configured, open, onToggle, onSaved, onDisconnec
     try {
       await api.deleteCredential(card.kind);
       setFields({});
-      onDisconnected(card.kind);
+      onDisconnect?.();
     } catch (e) {
       setError(e.message || 'could not disconnect');
     } finally {
@@ -393,76 +423,100 @@ function CredentialCard({ card, configured, open, onToggle, onSaved, onDisconnec
   );
 
   return (
-    <div className="border-b border-border last:border-b-0">
-      <button type="button" onClick={onToggle} className="w-full flex items-center gap-3 py-4 text-left">
+    <div className="py-4 border-b border-border last:border-b-0">
+      <div className="flex items-center gap-3 mb-3">
         <span className="text-wood shrink-0"><Icon className="w-5 h-5" /></span>
         <div className="flex-1 min-w-0">
-          <div className="font-bold tracking-tight flex items-center gap-2">
-            <span>{card.title}</span>
-            {configured
-              ? <Check className="w-4 h-4 text-green-600" aria-label="connected" />
-              : <span className="inline-block w-2 h-2 rounded-full bg-muted/40" aria-label="not connected" />}
-          </div>
+          <div className="font-bold tracking-tight">{card.title}</div>
           <div className="text-xs text-muted leading-snug">{card.subtitle}</div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-muted shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div className="pb-4 space-y-3">
-          {/* Setup guide placeholder. */}
-          <div
-            className="flex items-center justify-center text-center border border-line bg-bg/40 text-muted text-xs px-3"
-            style={{ minHeight: 80 }}
-          >
-            Setup guides will come here
-          </div>
-
-          {card.twitter ? (
-            <div className="space-y-2">
-              <input
-                type="password" autoComplete="off" placeholder="auth_token"
-                value={fields.auth_token || ''}
-                onChange={e => setFields(f => ({ ...f, auth_token: e.target.value }))}
-                className="w-full bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="password" autoComplete="off" placeholder="ct0"
-                  value={fields.ct0 || ''}
-                  onChange={e => setFields(f => ({ ...f, ct0: e.target.value }))}
-                  className="flex-1 min-w-0 bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
-                />
-                {SaveBtn}
-              </div>
-            </div>
-          ) : (
+      </div>
+      <div className="space-y-3">
+        <div
+          className="flex items-center justify-center text-center border border-line bg-bg/40 text-muted text-xs px-3"
+          style={{ minHeight: 80 }}
+        >
+          Setup guides will come here
+        </div>
+        {card.twitter ? (
+          <div className="space-y-2">
+            <input
+              type="password" autoComplete="off" placeholder="auth_token"
+              value={fields.auth_token || ''}
+              onChange={e => setFields(f => ({ ...f, auth_token: e.target.value }))}
+              className="w-full bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
+            />
             <div className="flex gap-2">
               <input
-                type="password" autoComplete="off" placeholder={card.placeholder}
-                value={fields.value || ''}
-                onChange={e => setFields(f => ({ ...f, value: e.target.value }))}
+                type="password" autoComplete="off" placeholder="ct0"
+                value={fields.ct0 || ''}
+                onChange={e => setFields(f => ({ ...f, ct0: e.target.value }))}
                 className="flex-1 min-w-0 bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
               />
               {SaveBtn}
             </div>
-          )}
-
-          {error && <div className="text-xs text-wood">{error}</div>}
-
-          {configured && (
-            <button
-              type="button"
-              onClick={disconnect}
-              disabled={busy}
-              className="text-xs text-muted hover:text-wood underline disabled:opacity-50"
-            >
-              Disconnect
-            </button>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="password" autoComplete="off" placeholder={card.placeholder}
+              value={fields.value || ''}
+              onChange={e => setFields(f => ({ ...f, value: e.target.value }))}
+              className="flex-1 min-w-0 bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
+            />
+            {SaveBtn}
+          </div>
+        )}
+        {error && <div className="text-xs text-wood">{error}</div>}
+        {updateMode && onDisconnect && (
+          <button
+            type="button"
+            onClick={disconnect}
+            disabled={busy}
+            className="text-xs text-muted hover:text-wood underline disabled:opacity-50"
+          >
+            disconnect
+          </button>
+        )}
+      </div>
     </div>
+  );
+}
+
+function ConnectedChip({ card, active, onSelect, onDisconnected }) {
+  const Icon = card.Icon;
+  const [busy, setBusy] = useState(false);
+
+  const disconnect = async (e) => {
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      await api.deleteCredential(card.kind);
+      onDisconnected();
+    } catch { /* ignore */ }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`inline-flex items-center gap-2 border px-3 py-1.5 text-sm transition-colors ${
+        active ? 'border-wood bg-wood/10' : 'border-border bg-bg hover:border-ink'
+      }`}
+    >
+      <Icon className="w-4 h-4 text-wood" />
+      <span className="font-bold tracking-tight">{card.title}</span>
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={disconnect}
+        onKeyDown={e => { if (e.key === 'Enter') disconnect(e); }}
+        className="text-[10px] text-muted hover:text-wood underline ml-1"
+      >
+        {busy ? '…' : 'disconnect'}
+      </span>
+    </button>
   );
 }
 

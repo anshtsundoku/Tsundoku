@@ -52,6 +52,7 @@ export const api = {
   googleAuth: (credential) => request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
   me:         () => request('/auth/me'),
   logout:     () => request('/auth/logout', { method: 'POST' }),
+  completeOnboarding: () => request('/auth/onboarding-complete', { method: 'POST' }),
   deleteAccount: () => request('/account', { method: 'DELETE' }),
 
   listDomains: () => request('/domains'),

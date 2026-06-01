@@ -15,7 +15,7 @@ import { listHighlights, createHighlight, deleteHighlight } from './routes/highl
 import { triggerIngest, status, regenerateTldrs, geminiTest, pushAudit } from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
-import { googleAuth, logout, me }          from './routes/auth.js';
+import { googleAuth, logout, me, onboardingComplete } from './routes/auth.js';
 import { getCredentials, patchCredential, deleteCredential } from './routes/credentials.js';
 import { deleteAccount }                    from './routes/account.js';
 
@@ -31,6 +31,7 @@ const router = new Router()
   .post('/api/auth/google',              googleAuth)
   .post('/api/auth/logout',              logout)
   .get('/api/auth/me',                   me)
+  .post('/api/auth/onboarding-complete', onboardingComplete)
   // Account lifecycle
   .delete('/api/account',                deleteAccount)
   // Credential vault (per-user encrypted third-party keys)

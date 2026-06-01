@@ -196,3 +196,10 @@ export async function me(request, { env }) {
   if (!user) return json({ error: 'unauthorized' }, 401);
   return json({ user });
 }
+
+// POST /api/auth/onboarding-complete — mark the wizard finished (never re-triggers).
+export async function onboardingComplete(request, { env }) {
+  const u = await currentUser(env, request);
+  await run(env, `UPDATE users SET onboarded_at = datetime('now') WHERE id = ?`, [u.id]);
+  return new Response(null, { status: 204 });
+}

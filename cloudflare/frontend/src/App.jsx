@@ -1,5 +1,5 @@
 import { useEffect, useState, createContext, useContext } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import Domain from './pages/Domain.jsx';
 import Sources from './pages/Sources.jsx';
@@ -7,17 +7,19 @@ import Settings from './pages/Settings.jsx';
 import TypeFeed from './pages/TypeFeed.jsx';
 import Search   from './pages/Search.jsx';
 import Library  from './pages/Library.jsx';
-import Landing  from './pages/Landing.jsx';
-import Privacy  from './pages/Privacy.jsx';
-import Terms    from './pages/Terms.jsx';
+import Landing    from './pages/Landing.jsx';
+import Onboarding from './pages/Onboarding.jsx';
+import Privacy    from './pages/Privacy.jsx';
+import Terms      from './pages/Terms.jsx';
 import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
 import { applyUiStyle, currentUiStyle, syncUiStyleFromServer } from './lib/uiStyle.js';
 import { me } from './lib/auth.js';
 import { GearIcon, HomeIcon, SearchIcon, LibraryIcon } from './components/Icons.jsx';
 
-// Signed-in user, available app-wide via useUser().
+// Signed-in user + setter (onboarding completion updates without full reload).
 const UserContext = createContext(null);
-export function useUser() { return useContext(UserContext); }
+export function useUser() { return useContext(UserContext)?.user ?? null; }
+export function useSetUser() { return useContext(UserContext)?.setUser; }
 
 // Brand mark — a single closed book with a bookmark ribbon. Minimal, apt
 // for "Tsundoku" (the unread book waiting for you). Uses currentColor so
@@ -88,9 +90,20 @@ export default function App() {
     );
   }
 
+  const needsOnboarding = !user.onboarded_at;
+
   return (
-    <UserContext.Provider value={user}>
-      <AppShell />
+    <UserContext.Provider value={{ user, setUser }}>
+      <Routes>
+        <Route
+          path="/onboarding"
+          element={needsOnboarding ? <Onboarding /> : <Navigate to="/" replace />}
+        />
+        <Route
+          path="*"
+          element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <AppShell />}
+        />
+      </Routes>
     </UserContext.Provider>
   );
 }
