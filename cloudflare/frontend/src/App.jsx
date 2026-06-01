@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, createContext, useContext } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import Domain from './pages/Domain.jsx';
@@ -7,15 +7,24 @@ import Settings from './pages/Settings.jsx';
 import TypeFeed from './pages/TypeFeed.jsx';
 import Search   from './pages/Search.jsx';
 import Library  from './pages/Library.jsx';
+import Landing  from './pages/Landing.jsx';
+import Privacy  from './pages/Privacy.jsx';
+import Terms    from './pages/Terms.jsx';
 import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
 import { applyUiStyle, currentUiStyle, syncUiStyleFromServer } from './lib/uiStyle.js';
+import { me } from './lib/auth.js';
 import { GearIcon, HomeIcon, SearchIcon, LibraryIcon } from './components/Icons.jsx';
+
+// Signed-in user, available app-wide via useUser().
+const UserContext = createContext(null);
+export function useUser() { return useContext(UserContext); }
 
 // Brand mark — a single closed book with a bookmark ribbon. Minimal, apt
 // for "Tsundoku" (the unread book waiting for you). Uses currentColor so
 // it inherits text-wood / text-ink.
 export function Brand({ size = 'md' }) {
   const cls =
+    size === 'hero' ? 'w-20 h-20' :
     size === 'xl' ? 'w-9 h-9'  :
     size === 'lg' ? 'w-7 h-7'  :
     size === 'sm' ? 'w-5 h-5'  : 'w-6 h-6';
@@ -29,13 +38,64 @@ export function Brand({ size = 'md' }) {
   );
 }
 
+function FullScreenSpinner() {
+  return (
+    <div className="min-h-screen bg-bg text-ink flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-line border-t-wood rounded-full animate-spin" aria-label="loading" />
+    </div>
+  );
+}
+
 export default function App() {
+  const [authState, setAuthState] = useState('loading');  // loading | authed | anon
+  const [user, setUser] = useState(null);
+
+  // Apply the cached skin/theme immediately (matches the inline bootstrap in
+  // index.html), regardless of auth — the Landing page should look right too.
   useEffect(() => {
-    applyUiStyle(currentUiStyle());    // skin first so the palette class is present
-    applyTheme(currentTheme());        // instant — from localStorage cache
-    syncThemeFromServer();             // background — pulls cross-device preference
-    syncUiStyleFromServer();           // background — same for interface style
+    applyUiStyle(currentUiStyle());
+    applyTheme(currentTheme());
   }, []);
+
+  // Resolve the session once on mount.
+  useEffect(() => {
+    let alive = true;
+    me().then((u) => {
+      if (!alive) return;
+      if (u) {
+        setUser(u);
+        setAuthState('authed');
+        // Cross-device preferences require auth — pull them now.
+        syncThemeFromServer();
+        syncUiStyleFromServer();
+      } else {
+        setAuthState('anon');
+      }
+    });
+    return () => { alive = false; };
+  }, []);
+
+  if (authState === 'loading') return <FullScreenSpinner />;
+
+  // Signed out: only the Landing page and the public stub pages mount.
+  if (authState === 'anon') {
+    return (
+      <Routes>
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms"   element={<Terms />} />
+        <Route path="*"        element={<Landing />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <UserContext.Provider value={user}>
+      <AppShell />
+    </UserContext.Provider>
+  );
+}
+
+function AppShell() {
   const loc = useLocation();
 
   return (
@@ -95,6 +155,8 @@ export default function App() {
           <Route path="/library"           element={<Library />} />
           <Route path="/sources"           element={<Sources />} />
           <Route path="/settings"          element={<Settings />} />
+          <Route path="/privacy"           element={<Privacy />} />
+          <Route path="/terms"             element={<Terms />} />
         </Routes>
       </main>
     </div>

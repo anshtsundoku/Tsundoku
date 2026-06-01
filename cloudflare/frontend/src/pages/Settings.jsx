@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Youtube, Mail, Twitter, Sparkles, Check, ChevronDown } from 'lucide-react';
-import { api } from '../lib/api.js';
+import { api, clearToken } from '../lib/api.js';
+import { useUser } from '../App.jsx';
+import { logout } from '../lib/auth.js';
 import { currentTheme, setTheme as persistTheme } from '../lib/theme.js';
 import { currentUiStyle, setUiStyle } from '../lib/uiStyle.js';
 import { getPushStatus, subscribeToPush, unsubscribeFromPush } from '../lib/push.js';
@@ -29,9 +31,13 @@ const CREDENTIAL_CARDS = [
 ];
 
 export default function Settings() {
+  const user = useUser();
   const [theme, setLocalTheme] = useState(currentTheme());
   const [uiStyle, setLocalUiStyle] = useState(currentUiStyle());
   const [refreshState, setRefreshState] = useState('idle');  // idle | loading | done | error
+  const [showDelete, setShowDelete] = useState(false);
+
+  const doLogout = async () => { await logout(); window.location.reload(); };
 
   // Push notifications state
   const [push, setPush] = useState({ supported: false, configured: false, subscribed: false, permission: 'default' });
@@ -185,6 +191,111 @@ export default function Settings() {
           <p>A quiet feed of the few sources you trust. Read deliberately.</p>
         </div>
       </Section>
+
+      <Section title="Account">
+        <Row
+          label="Signed in as"
+          desc={user?.email || '—'}
+          right={user?.picture
+            ? <img src={user.picture} alt="" referrerPolicy="no-referrer" className="w-9 h-9 rounded-full border border-border" />
+            : null}
+          bordered
+        />
+        <Row
+          label="Log out"
+          desc="Sign out of Tsundoku on this device."
+          right={
+            <button
+              onClick={doLogout}
+              className="text-xs tt-label tracking-eyebrow font-bold px-3 py-1.5 border border-ink text-ink hover:bg-ink hover:text-bg transition-colors"
+            >
+              Log out
+            </button>
+          }
+          bordered
+        />
+        <Row
+          label="Delete account"
+          desc="Permanently erase everything you've saved. There's no undo."
+          right={
+            <button
+              onClick={() => setShowDelete(true)}
+              className="text-xs tt-label tracking-eyebrow font-bold px-3 py-1.5 border border-red-600 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+            >
+              Delete…
+            </button>
+          }
+        />
+      </Section>
+
+      {showDelete && <DeleteAccountModal onClose={() => setShowDelete(false)} />}
+    </div>
+  );
+}
+
+function DeleteAccountModal({ onClose }) {
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const canDelete = confirm.trim().toLowerCase() === 'delete';
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const doDelete = async () => {
+    if (!canDelete) return;
+    setBusy(true); setError(null);
+    try {
+      await api.deleteAccount();
+      clearToken();
+      window.location.reload();
+    } catch (e) {
+      setError(e.message || 'could not delete account');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      onClick={onClose}
+    >
+      <div className="bg-elev border border-border max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-bold tt-title text-lg text-red-600 tracking-tight">Delete account</h3>
+        <p className="text-sm text-muted leading-snug mt-2">
+          this will permanently delete your domains, sources, posts, bookmarks, push subscriptions, and credentials. there's no undo.
+        </p>
+        <label className="block text-xs text-muted mt-4 mb-1">
+          type <span className="font-bold text-ink">delete</span> to confirm
+        </label>
+        <input
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          autoFocus
+          placeholder="delete"
+          className="w-full bg-bg border border-border px-3 py-2 text-ink text-sm"
+        />
+        {error && <div className="text-xs text-red-600 mt-2">{error}</div>}
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="text-xs tt-label tracking-eyebrow font-bold px-3 py-2 text-muted hover:text-ink disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={doDelete}
+            disabled={!canDelete || busy}
+            className="text-xs tt-label tracking-eyebrow font-bold px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 transition-colors"
+          >
+            {busy ? 'Deleting…' : 'Delete forever'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

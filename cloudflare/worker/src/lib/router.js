@@ -31,13 +31,13 @@ export class Router {
       r.keys.forEach((k, i) => params[k] = decodeURIComponent(m[i + 1]));
       try {
         const res = await r.handler(request, { params, env, ctx, url });
-        return withCors(res);
+        return withCors(res, request, env);
       } catch (err) {
         console.error('[router]', err);
-        return withCors(json({ error: err.message || 'internal error' }, 500));
+        return withCors(json({ error: err.message || 'internal error' }, 500), request, env);
       }
     }
-    return withCors(json({ error: 'not found' }, 404));
+    return withCors(json({ error: 'not found' }, 404), request, env);
   }
 }
 
@@ -48,14 +48,39 @@ export function json(data, status = 200) {
   });
 }
 
-export function withCors(res) {
+// The frontend (Pages) and API (Worker) live on different registrable domains,
+// so requests are cross-site and must use credentialed CORS: the browser
+// refuses `*` once credentials are involved, so we reflect a specific,
+// allow-listed Origin and send Access-Control-Allow-Credentials.
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://tsundoku-e0v.pages.dev',  // production frontend
+  'http://localhost:5173',           // vite dev
+  'http://localhost:4173',           // vite preview
+];
+// Cloudflare Pages preview deploys: <hash>.tsundoku-e0v.pages.dev
+const PAGES_PREVIEW_RE = /^https:\/\/[a-z0-9-]+\.tsundoku-e0v\.pages\.dev$/;
+
+function isAllowedOrigin(origin, env) {
+  if (!origin) return false;
+  const extra = String(env?.CORS_ORIGINS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  if (DEFAULT_ALLOWED_ORIGINS.includes(origin) || extra.includes(origin)) return true;
+  return PAGES_PREVIEW_RE.test(origin);
+}
+
+export function withCors(res, request, env) {
   const r = new Response(res.body, res);
-  r.headers.set('access-control-allow-origin', '*');
+  const origin = request?.headers?.get('Origin');
+  if (origin && isAllowedOrigin(origin, env)) {
+    r.headers.set('access-control-allow-origin', origin);
+    r.headers.set('access-control-allow-credentials', 'true');
+    r.headers.append('Vary', 'Origin');
+  }
   r.headers.set('access-control-allow-methods', 'GET,POST,PATCH,DELETE,OPTIONS');
-  r.headers.set('access-control-allow-headers', 'content-type');
+  r.headers.set('access-control-allow-headers', 'content-type,authorization');
   return r;
 }
 
-export function handleOptions() {
-  return withCors(new Response(null, { status: 204 }));
+export function handleOptions(request, env) {
+  return withCors(new Response(null, { status: 204 }), request, env);
 }

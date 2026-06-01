@@ -28,6 +28,15 @@ const SESSION_COOKIE = 'session';
 const _perRequestUser = new WeakMap();
 
 function readSessionToken(request) {
+  // Bearer token wins. Cross-site clients (the Pages frontend lives on a
+  // different registrable domain than this Worker, and iOS Safari blocks
+  // third-party cookies) send the session JWT in the Authorization header.
+  const authz = request?.headers?.get('Authorization') || '';
+  if (/^Bearer\s+/i.test(authz)) {
+    const t = authz.replace(/^Bearer\s+/i, '').trim();
+    if (t) return t;
+  }
+  // Fall back to the first-party session cookie (works same-site / desktop).
   const header = request?.headers?.get('Cookie') || '';
   for (const part of header.split(';')) {
     const i = part.indexOf('=');

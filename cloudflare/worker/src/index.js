@@ -17,6 +17,7 @@ import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
 import { googleAuth, logout, me }          from './routes/auth.js';
 import { getCredentials, patchCredential, deleteCredential } from './routes/credentials.js';
+import { deleteAccount }                    from './routes/account.js';
 
 import { runRss }         from './ingest/rss.js';
 import { runYoutube }     from './ingest/youtube.js';
@@ -30,6 +31,8 @@ const router = new Router()
   .post('/api/auth/google',              googleAuth)
   .post('/api/auth/logout',              logout)
   .get('/api/auth/me',                   me)
+  // Account lifecycle
+  .delete('/api/account',                deleteAccount)
   // Credential vault (per-user encrypted third-party keys)
   .get('/api/credentials',               getCredentials)
   .patch('/api/credentials',             patchCredential)
@@ -82,7 +85,7 @@ const ANONYMOUS_ROUTES = new Set([
 
 export default {
   async fetch(request, env, ctx) {
-    if (request.method === 'OPTIONS') return handleOptions();
+    if (request.method === 'OPTIONS') return handleOptions(request, env);
 
     // Auth gate: require a valid session on every route except the anonymous
     // allowlist. Routes still call currentUser() themselves to get the user id;
@@ -93,7 +96,7 @@ export default {
       try {
         await currentUser(env, request);
       } catch (e) {
-        return withCors(json({ error: 'unauthorized' }, (e && e.status) || 401));
+        return withCors(json({ error: 'unauthorized' }, (e && e.status) || 401), request, env);
       }
     }
 

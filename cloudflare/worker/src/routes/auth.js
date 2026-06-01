@@ -13,7 +13,8 @@
 
 import { first, run } from '../lib/db.js';
 import { json } from '../lib/router.js';
-import { sign, verify } from '../lib/jwt.js';
+import { sign } from '../lib/jwt.js';
+import { currentUserOptional } from '../lib/auth.js';
 
 const SESSION_COOKIE = 'session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches JWT default
@@ -119,21 +120,13 @@ async function upsertGoogleUser(env, { sub, email, name, picture }) {
   return { id: r.meta?.last_row_id, email, name: name || null, picture: picture || null };
 }
 
-// ---- cookie helpers --------------------------------------------------------
-function parseCookies(request) {
-  const header = request.headers.get('Cookie') || '';
-  const out = {};
-  for (const part of header.split(';')) {
-    const i = part.indexOf('=');
-    if (i === -1) continue;
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
-  }
-  return out;
-}
-
+// ---- cookie helper ---------------------------------------------------------
 function sessionCookie(value, maxAgeSeconds) {
-  // HttpOnly so JS can't read it; Secure so it's HTTPS-only; SameSite=Lax.
-  return `${SESSION_COOKIE}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}`;
+  // HttpOnly so JS can't read it; Secure so it's HTTPS-only. SameSite=None is
+  // required because the frontend is on a different site than this API — the
+  // cookie only flows on browsers that still allow third-party cookies; the
+  // bearer token (returned in the JSON body) is the cross-browser path.
+  return `${SESSION_COOKIE}=${value}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAgeSeconds}`;
 }
 
 // ---- routes ----------------------------------------------------------------
@@ -182,7 +175,12 @@ export async function googleAuth(request, { env }) {
 
   const token = await sign({ uid: user.id, sub, email }, SESSION_MAX_AGE, env.JWT_SECRET);
 
-  const res = json({ user: { id: user.id, email: user.email, name: user.name, picture: user.picture } });
+  // Return the token in the body so cross-site clients can store it and send it
+  // as a Bearer header (cookies can't be relied on across registrable domains).
+  const res = json({
+    user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
+    token,
+  });
   res.headers.append('Set-Cookie', sessionCookie(token, SESSION_MAX_AGE));
   return res;
 }
@@ -194,12 +192,7 @@ export async function logout() {
 }
 
 export async function me(request, { env }) {
-  const token = parseCookies(request)[SESSION_COOKIE];
-  const payload = token ? await verify(token, env.JWT_SECRET) : null;
-  if (!payload?.uid) return json({ error: 'unauthorized' }, 401);
-
-  const user = await first(env, `SELECT id, email, name, picture FROM users WHERE id = ?`, [payload.uid]);
+  const user = await currentUserOptional(env, request);
   if (!user) return json({ error: 'unauthorized' }, 401);
-
   return json({ user });
 }
