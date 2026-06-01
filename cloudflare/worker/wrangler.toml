@@ -34,3 +34,7 @@ OWNER_EMAIL = "ansh.tsundoku@gmail.com"
 #   GMAIL_REFRESH_TOKEN
 #   TWITTER_AUTH_TOKEN
 #   TWITTER_CT0
+#   # Phase 1 multi-tenancy (auth plumbing):
+#   JWT_SECRET        — session cookie signing key   (openssl rand -base64 48)
+#   ENCRYPTION_KEY    — 32-byte hex AES-GCM key       (openssl rand -hex 32)
+#   GOOGLE_CLIENT_ID  — OAuth web client id from Google Cloud Console

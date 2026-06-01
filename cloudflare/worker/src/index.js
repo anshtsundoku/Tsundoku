@@ -14,6 +14,7 @@ import { listHighlights, createHighlight, deleteHighlight } from './routes/highl
 import { triggerIngest, status, regenerateTldrs, geminiTest } from './routes/admin.js';
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
+import { googleAuth, logout, me }          from './routes/auth.js';
 
 import { runRss }         from './ingest/rss.js';
 import { runYoutube }     from './ingest/youtube.js';
@@ -23,6 +24,10 @@ import { runCleanup }     from './ingest/cleanup.js';
 
 const router = new Router()
   .get('/api/health',                    () => json({ ok: true, app: 'tsundoku' }))
+  // Auth (Phase 1 multi-tenancy plumbing — not yet enforced on other routes)
+  .post('/api/auth/google',              googleAuth)
+  .post('/api/auth/logout',              logout)
+  .get('/api/auth/me',                   me)
   // Domains
   .get('/api/domains',                   listDomains)
   .post('/api/domains',                  createDomain)

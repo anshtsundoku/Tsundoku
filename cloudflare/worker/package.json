@@ -16,6 +16,8 @@
     "migrate:v1_3":   "wrangler d1 execute tsundoku --remote --file=migrations/0005_v1_3.sql",
     "migrate:v2":     "wrangler d1 execute tsundoku --remote --file=migrations/0006_flush_raw_tldrs.sql",
     "migrate:push":   "wrangler d1 execute tsundoku --remote --file=migrations/0007_push_subs.sql",
+    "migrate:0008":   "wrangler d1 execute tsundoku --remote --file=migrations/0008_users_oauth.sql",
+    "migrate:0009":   "wrangler d1 execute tsundoku --remote --file=migrations/0009_user_credentials.sql",
     "backup:remote":  "wrangler d1 export tsundoku --remote --output=backups/tsundoku-$(date +%Y%m%d-%H%M%S).sql"
   },
   "devDependencies": {
