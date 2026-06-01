@@ -28,8 +28,10 @@ export async function listPosts(_req, { env, url }) {
   if (type)   { params.push(type);   wheres.push(`s.type = ?`); }
 
   // Dismissed never shows. Filter selects which other state.
+  // Weekend-saved posts are excluded from Read: marking something for the
+  // weekend auto-moves it out of the Read tab into Weekend.
   const filterSql = filter === 'read'
-    ? 'AND p.is_read = 1 AND p.is_dismissed = 0'
+    ? 'AND p.is_read = 1 AND p.is_weekend = 0 AND p.is_dismissed = 0'
     : filter === 'bookmark'
     ? 'AND p.is_bookmarked = 1 AND p.is_dismissed = 0'
     : filter === 'weekend'

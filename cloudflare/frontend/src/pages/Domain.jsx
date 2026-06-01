@@ -91,7 +91,8 @@ export default function Domain() {
   const visiblePosts = tab === 'unread'
     ? posts.filter(p => !p.is_read && !p.is_dismissed)
     : tab === 'read'
-    ? posts.filter(p => p.is_read && !p.is_dismissed)
+    // Weekend-saved items auto-move out of Read into the Weekend tab.
+    ? posts.filter(p => p.is_read && !p.is_weekend && !p.is_dismissed)
     : tab === 'bookmark'
     ? posts.filter(p => p.is_bookmarked && !p.is_dismissed)
     : posts.filter(p => p.is_weekend && !p.is_dismissed);

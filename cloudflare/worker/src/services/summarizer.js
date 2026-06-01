@@ -11,25 +11,69 @@
 //      back-off. Don't retry 4xx errors except 429.
 //   4. Log enough that "why did this fail?" is answerable from wrangler tail.
 
+// Current Gemini model names (2.x family). Google retires older names every
+// few months — the 1.5 series began returning 404 "not found for v1beta" — so
+// we (a) keep this chain on the live 2.x names and (b) fall back to live model
+// discovery (listModels) when every hard-coded name 404s. That makes the
+// summarizer self-healing across future renames.
 const MODELS_FALLBACK_CHAIN = [
+  'gemini-2.5-flash',
   'gemini-2.0-flash',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
   'gemini-2.0-flash-001',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-latest',
 ];
 const ENDPOINT = (model, key) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+const LIST_ENDPOINT = (key) =>
+  `https://generativelanguage.googleapis.com/v1beta/models?key=${key}&pageSize=1000`;
 
 const WPM = 220;
 
 // Memoised once we've found a model that works on this account.
 let _workingModel = null;
+// Memoised result of live model discovery (so we hit listModels at most once).
+let _discoveryDone = false;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 export function readTimeFor(text) {
   if (!text) return 1;
   return Math.max(1, Math.round(text.trim().split(/\s+/).length / WPM));
+}
+
+// Ask the Generative Language API which models this key can actually use for
+// generateContent, and pick a fast (flash) one. Returns a model name or null.
+// `raw` (when true) returns the full filtered name list for diagnostics.
+export async function listGenerateContentModels(env) {
+  if (!env.GEMINI_API_KEY) return { ok: false, reason: 'no_key' };
+  try {
+    const r = await fetch(LIST_ENDPOINT(env.GEMINI_API_KEY));
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      return { ok: false, reason: 'http', status: r.status, body: body.slice(0, 240) };
+    }
+    const data = await r.json();
+    const names = (data?.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => (m.name || '').replace(/^models\//, ''))
+      .filter(Boolean);
+    return { ok: true, names };
+  } catch (e) {
+    return { ok: false, reason: 'network', error: e.message };
+  }
+}
+
+// Choose the best model name from a discovered list: prefer a stable flash
+// model, avoid non-text (embedding/vision/tts/image/audio) and preview/exp.
+function chooseModel(names) {
+  const bad = /embedding|aqa|vision|image|imagen|tts|audio|live|learnlm|gemma|exp|preview/i;
+  const flash = names.filter(n => /flash/i.test(n) && !bad.test(n));
+  const prefer = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
+  for (const p of prefer) if (flash.includes(p)) return p;
+  if (flash.length) return flash.sort((a, b) => a.length - b.length)[0];
+  const clean = names.filter(n => !bad.test(n));
+  return clean[0] || names[0] || null;
 }
 
 // Returns { ok: true, text, model } on success, { ok: false, reason, status?, body? } otherwise.
@@ -96,6 +140,48 @@ async function callGemini(env, prompt, maxTokens = 280) {
       }
     }
   }
+
+  // Every hard-coded model failed. If we haven't yet, ask the API which models
+  // this key can actually use and retry once with a discovered model. This is
+  // what recovers automatically when Google renames/retires the chain.
+  if (!_discoveryDone) {
+    _discoveryDone = true;
+    const disc = await listGenerateContentModels(env);
+    if (disc.ok && disc.names?.length) {
+      const picked = chooseModel(disc.names);
+      console.warn(`[gemini] discovery: available=${disc.names.slice(0, 12).join(',')} → picked=${picked}`);
+      if (picked && !order.includes(picked)) {
+        try {
+          const r = await fetch(ENDPOINT(picked, env.GEMINI_API_KEY), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
+            }),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text && text.trim()) {
+              _workingModel = picked;
+              return { ok: true, text: text.trim(), model: picked };
+            }
+            lastErr = { reason: 'empty_response', finish: data?.candidates?.[0]?.finishReason || 'unknown' };
+          } else {
+            const body = await r.text().catch(() => '');
+            lastErr = { reason: 'http', status: r.status, body: body.slice(0, 240) };
+          }
+        } catch (e) {
+          lastErr = { reason: 'network', error: e.message };
+        }
+      }
+    } else {
+      console.warn('[gemini] discovery failed:', JSON.stringify(disc).slice(0, 200));
+      lastErr = { ...lastErr, discovery: disc };
+    }
+  }
+
   return { ok: false, ...lastErr };
 }
 
@@ -160,5 +246,12 @@ ${transcript.slice(0, 20000)}`;
 // and reports which model responded (or what went wrong).
 export async function geminiHealth(env) {
   const r = await callGemini(env, 'Reply with the single word "ok".', 16);
-  return r;
+  // Include the live model inventory so "why are TLDRs missing?" is answerable
+  // directly from the endpoint without a wrangler tail.
+  const disc = await listGenerateContentModels(env);
+  return {
+    ...r,
+    available_models: disc.ok ? disc.names : undefined,
+    discovery_error: disc.ok ? undefined : disc,
+  };
 }

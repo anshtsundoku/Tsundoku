@@ -11,8 +11,21 @@ function timeAgo(iso) {
   return `${Math.floor(diff / 86400)}d`;
 }
 
+// Tweet feed text: show the actual tweet content, trimmed to a 200-char
+// preview (drop any trailing t.co media link first) instead of relying on a
+// summary or just showing the image.
+const TWEET_PREVIEW_LIMIT = 200;
+function tweetPreview(text) {
+  if (!text) return '';
+  const cleaned = text.replace(/\s*https:\/\/t\.co\/\S+\s*$/g, '').trim();
+  if (cleaned.length <= TWEET_PREVIEW_LIMIT) return cleaned;
+  return cleaned.slice(0, TWEET_PREVIEW_LIMIT).trimEnd() + '…';
+}
+
 export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, onToggleWeekend, onDismiss }) {
   const isYouTube = post.source_type === 'youtube' && post.video_url;
+  const isTweet = post.source_type === 'twitter';
+  const tweetText = isTweet ? tweetPreview(post.content_text) : '';
 
   // Touch gestures: right swipe = mark read, left swipe = dismiss,
   // long-press = bookmark, tap = open. Buttons still work on desktop.
@@ -68,7 +81,13 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
           <h3 className="font-bold text-lg leading-snug tracking-tight mb-1.5 group-hover:text-wood transition-colors break-words">{post.title}</h3>
         )}
 
-        {post.tldr ? (
+        {/* Tweets: show the tweet text (200-char preview) as the primary body
+            rather than only an image. Other types keep the AI TLDR. */}
+        {isTweet ? (
+          tweetText ? (
+            <p className="text-[15px] text-ink leading-relaxed mb-3 whitespace-pre-line break-words">{tweetText}</p>
+          ) : null
+        ) : post.tldr ? (
           <p className="text-sm text-muted leading-relaxed mb-3 whitespace-pre-line">{post.tldr}</p>
         ) : null}
 
