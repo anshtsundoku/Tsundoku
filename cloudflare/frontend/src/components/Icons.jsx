@@ -1,15 +1,6 @@
 // Minimal inline icons so we don't pull in a heavy icon library.
 const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
-export const SunIcon = (p) => (
-  <svg viewBox="0 0 24 24" {...base} {...p}>
-    <circle cx="12" cy="12" r="4" />
-    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-  </svg>
-);
-export const MoonIcon = (p) => (
-  <svg viewBox="0 0 24 24" {...base} {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-);
 export const HomeIcon = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M3 11l9-8 9 8M5 10v10h14V10" /></svg>
 );

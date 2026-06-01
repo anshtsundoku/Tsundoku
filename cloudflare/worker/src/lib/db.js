@@ -20,8 +20,3 @@ export async function run(env, sql, params = []) {
   const stmt = env.DB.prepare(sql).bind(...params);
   return await stmt.run();
 }
-
-// INSERT ... RETURNING * — D1 supports RETURNING since 2024.
-export async function insertReturning(env, sql, params = []) {
-  return first(env, sql, params);
-}

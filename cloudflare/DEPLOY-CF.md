@@ -205,8 +205,10 @@ curl https://tsundoku-api.YOURNAME.workers.dev/api/admin/status
 
 ## Step 7 — Point the frontend at the Worker
 
-1. Open `cloudflare/frontend/_redirects` in your editor.
-2. Replace `tsundoku-api.YOURNAME.workers.dev` with your real Worker URL from Step 6.
+The frontend calls the Worker cross-origin (the Worker is CORS-enabled), so there's no `_redirects` proxy to edit — just one constant.
+
+1. Open `cloudflare/frontend/src/lib/api.js`.
+2. Replace the `BASE` URL with your real Worker URL from Step 6 (keep the trailing `/api`).
 3. Commit and push:
 
    ```bash
@@ -356,25 +358,6 @@ wrangler secret put TWITTER_CT0
 **D1 queries fail with `no such table`.** You didn't run `npm run migrate:remote`. Re-run it.
 
 **Pages PWA install on iPhone doesn't show the book icon.** Force-refresh: long-press the home-screen icon → Remove → reinstall. iOS aggressively caches the manifest.
-
----
-
-# What about the `mindful/` Docker version?
-
-It's still in the repo — different architecture (Docker compose, WebSocket real-time, single VM). You're not using it; safe to delete the top-level `backend/`, `frontend/`, `infra/`, `docker-compose.yml`, `deploy.sh`, `update.sh`, `Makefile`, `DEPLOY.md`, `README.md` if you want a clean repo with just the Cloudflare deployment. Or keep them around as a fallback.
-
-```bash
-# Clean-repo option:
-git rm -r backend frontend infra ui-preview
-git rm docker-compose.yml deploy.sh update.sh Makefile DEPLOY.md README.md
-mv cloudflare/* .
-rmdir cloudflare
-git add -A
-git commit -m "Cloudflare-only layout"
-git push
-```
-
-(If you do this, update the Pages build command to drop the `cd cloudflare/frontend &&` prefix.)
 
 ---
 

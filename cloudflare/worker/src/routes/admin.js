@@ -6,7 +6,7 @@
 // /api proxy. Leave the token off → 401.
 
 import { json } from '../lib/router.js';
-import { all, first, run } from '../lib/db.js';
+import { all, run } from '../lib/db.js';
 import { summarize, geminiHealth } from '../services/summarizer.js';
 import { stripHtml } from '../lib/textClean.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';

@@ -44,7 +44,3 @@ export async function setTheme(theme) {
   try { await api.patchPrefs({ theme }); }
   catch (e) { console.warn('[theme] failed to sync to server', e.message); }
 }
-
-export function toggleTheme() {
-  setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
-}

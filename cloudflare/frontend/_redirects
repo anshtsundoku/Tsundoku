@@ -1,5 +1,0 @@
-# Cloudflare Pages: SPA fallback + API proxy to the Worker.
-# Replace tsundoku-api.YOURNAME.workers.dev with your deployed Worker URL.
-
-/api/*   https://tsundoku-api.YOURNAME.workers.dev/api/:splat   200
-/*       /index.html                                             200

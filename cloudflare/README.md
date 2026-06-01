@@ -33,9 +33,8 @@ cloudflare/
 │  ├─ wrangler.toml         d1 binding + cron triggers
 │  └─ package.json
 └─ frontend/                Cloudflare Pages site
-   ├─ src/                  React PWA — same UI as the Docker version, polls instead of WebSocket
-   ├─ public/               favicon.svg + 192/512 book icons
-   ├─ _redirects            SPA fallback + /api proxy to Worker
+   ├─ src/                  React PWA, polls the Worker instead of WebSocket
+   ├─ public/               favicon.svg, book icons, _redirects (SPA fallback)
    └─ package.json
 ```
 

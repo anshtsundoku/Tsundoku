@@ -1,7 +1,7 @@
 // Routes for web push subscription management + a one-shot VAPID key
 // generator that's gated by the admin token (used during initial setup).
 
-import { all, first, run } from '../lib/db.js';
+import { first, run } from '../lib/db.js';
 import { currentUser } from '../lib/auth.js';
 import { json } from '../lib/router.js';
 import { generateVapidKeys } from '../lib/webPush.js';
