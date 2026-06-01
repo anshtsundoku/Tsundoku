@@ -18,6 +18,10 @@ export default function Landing() {
 
   useEffect(() => {
     if (!CLIENT_ID) console.warn('[auth] VITE_GOOGLE_CLIENT_ID is not set');
+    // If Google shows origin_mismatch, copy this exact string into Cloud Console →
+    // Credentials → your Web client → Authorized JavaScript origins (no trailing slash).
+    console.info('[auth] add to Authorized JavaScript origins:', window.location.origin);
+    console.info('[auth] OAuth client id:', CLIENT_ID);
 
     const onCredential = async (resp) => {
       try {
