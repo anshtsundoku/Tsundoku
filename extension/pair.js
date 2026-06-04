@@ -6,6 +6,18 @@
 
 const TSUNDOKU_ORIGIN = 'https://tsundoku-e0v.pages.dev';
 
+// Expose a page-world marker so the /extension-pair walkthrough can detect that
+// the extension is installed. Inject a web-accessible script (content scripts
+// run in an isolated world and can't set page globals directly).
+(function announcePresence() {
+  try {
+    const s = document.createElement('script');
+    s.src = chrome.runtime.getURL('inject.js');
+    s.onload = () => s.remove();
+    (document.head || document.documentElement).appendChild(s);
+  } catch (_e) { /* no-op */ }
+})();
+
 window.addEventListener('message', (event) => {
   // Only trust messages from the Tsundoku page itself.
   if (event.origin !== TSUNDOKU_ORIGIN) return;

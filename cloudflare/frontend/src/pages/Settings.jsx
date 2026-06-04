@@ -547,6 +547,9 @@ function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode, pairin
             >
               connect with browser extension (recommended)
             </Link>
+            <p className="text-xs text-muted/70 leading-snug">
+              new here? clicking will walk you through getting the extension.
+            </p>
             <p className="text-xs text-muted leading-snug">
               the tsundoku extension keeps your x cookies fresh automatically — no devtools, no expiry surprises.
             </p>
