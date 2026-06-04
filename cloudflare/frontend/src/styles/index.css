@@ -223,3 +223,8 @@ mark.mindful-highlight {
 .onboarding-fade-in {
   animation: onboarding-fade 300ms ease-out;
 }
+
+/* Push prompt banner — quick fade so it doesn't jump in. */
+.push-banner-fade-in {
+  animation: onboarding-fade 200ms ease-out;
+}

@@ -6,12 +6,21 @@ import { PlusIcon, TrashIcon, BellIcon, BellOffIcon } from '../components/Icons.
 import DomainModal from '../components/DomainModal.jsx';
 import { getPushStatus, subscribeToPush } from '../lib/push.js';
 
+// Shared with the Home.jsx contextual push banner so the two prompts don't
+// double-nudge: dismissing either one suppresses the other.
 const PUSH_NUDGE_KEY = 'tsundoku.push.nudged';
+const BANNER_DISMISSED_KEY = 'tsundoku.push.banner.dismissed';
 function wasPushNudged() {
-  try { return localStorage.getItem(PUSH_NUDGE_KEY) === '1'; } catch { return false; }
+  try {
+    return localStorage.getItem(PUSH_NUDGE_KEY) === '1' ||
+           localStorage.getItem(BANNER_DISMISSED_KEY) === 'true';
+  } catch { return false; }
 }
 function markPushNudged() {
-  try { localStorage.setItem(PUSH_NUDGE_KEY, '1'); } catch { /* ignore */ }
+  try {
+    localStorage.setItem(PUSH_NUDGE_KEY, '1');
+    localStorage.setItem(BANNER_DISMISSED_KEY, 'true');
+  } catch { /* ignore */ }
 }
 
 function isNotifyOn(s) {

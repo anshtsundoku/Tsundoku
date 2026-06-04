@@ -7,6 +7,21 @@ import { DomainIcon, PlusIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
 import { typeLabel, VISIBLE_TYPES } from '../lib/labels.js';
 import { SkeletonGrid } from '../components/Skeleton.jsx';
+import { getPushStatus, subscribeToPush } from '../lib/push.js';
+
+// Shared with the Sources.jsx post-add-source nudge so the user isn't
+// double-prompted: dismissing/accepting here also retires that nudge.
+const BANNER_DISMISSED_KEY = 'tsundoku.push.banner.dismissed';
+const SOURCES_NUDGE_KEY = 'tsundoku.push.nudged';
+function bannerDismissed() {
+  try { return localStorage.getItem(BANNER_DISMISSED_KEY) === 'true'; } catch { return false; }
+}
+function dismissBanner() {
+  try {
+    localStorage.setItem(BANNER_DISMISSED_KEY, 'true');
+    localStorage.setItem(SOURCES_NUDGE_KEY, '1');
+  } catch { /* ignore */ }
+}
 
 export default function Home() {
   const [domains, setDomains] = useState([]);
@@ -15,6 +30,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [push, setPush] = useState(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [bannerHidden, setBannerHidden] = useState(bannerDismissed());
+
+  const reloadPush = async () => {
+    try { setPush(await getPushStatus()); } catch { /* ignore */ }
+  };
+  useEffect(() => { reloadPush(); }, []);
 
   const load = async () => {
     try {
@@ -47,6 +70,41 @@ export default function Home() {
   const countByType = Object.fromEntries((typeCounts || []).map(r => [r.type, r.unread_count]));
   const visibleTypes = VISIBLE_TYPES.filter(t => (countByType[t] || 0) >= 0); // keep all
 
+  // Cheap "has content" signal: any unread across the source types we already
+  // fetched (no extra request). Stands in for posts.length >= 1.
+  const hasPosts = (typeCounts || []).some(r => (r.unread_count || 0) >= 1);
+
+  // Contextual push prompt — only when there's something to be pinged about and
+  // push is actually turn-on-able on this device.
+  const showPushBanner =
+    !bannerHidden && push &&
+    sources.length >= 1 && hasPosts &&
+    push.supported && !push.subscribed &&
+    push.permission !== 'denied' && !push.iosNeedsInstall;
+
+  // iOS-only variant: can't subscribe until installed to the home screen.
+  const showIosInstallBanner =
+    !bannerHidden && push && push.iosNeedsInstall &&
+    sources.length >= 1 && hasPosts;
+
+  const acceptPushBanner = async () => {
+    setPushBusy(true);
+    try {
+      await subscribeToPush();
+      await reloadPush();
+    } catch { /* leave banner; user can retry from settings */ }
+    finally {
+      dismissBanner();
+      setBannerHidden(true);
+      setPushBusy(false);
+    }
+  };
+
+  const declinePushBanner = () => {
+    dismissBanner();
+    setBannerHidden(true);
+  };
+
   // Zero-domain empty state: a single, friendly CTA.
   if (domains.length === 0) {
     return (
@@ -77,6 +135,46 @@ export default function Home() {
 
   return (
     <div>
+      {showPushBanner && (
+        <div className="push-banner-fade-in mb-8 bg-elev border-t border-b border-border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="text-sm text-ink flex-1">want a quiet ping when something new shows up?</p>
+          <div className="flex items-center gap-4 shrink-0">
+            <button
+              type="button"
+              onClick={acceptPushBanner}
+              disabled={pushBusy}
+              className="text-sm text-wood font-bold hover:underline disabled:opacity-50"
+            >
+              {pushBusy ? '…' : 'yes, turn on'}
+            </button>
+            <button
+              type="button"
+              onClick={declinePushBanner}
+              className="text-sm text-muted hover:text-ink transition-colors"
+            >
+              not now
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showIosInstallBanner && (
+        <div className="push-banner-fade-in mb-8 bg-elev border-t border-b border-border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="text-sm text-ink flex-1">
+            install tsundoku to your home screen to enable push on iphone. tap share → add to home screen.
+          </p>
+          <div className="flex items-center shrink-0">
+            <button
+              type="button"
+              onClick={declinePushBanner}
+              className="text-sm text-wood font-bold hover:underline"
+            >
+              got it
+            </button>
+          </div>
+        </div>
+      )}
+
       {noSources && (
         <Link
           to="/sources"

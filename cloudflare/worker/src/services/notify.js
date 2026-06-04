@@ -14,7 +14,7 @@ function vapidFromEnv(env) {
   };
 }
 
-export async function notifyNewPost(env, post, domainSlug, sourceType, sourceName, notifyEnabled = 1) {
+export async function notifyNewPost(env, post, domainSlug, sourceType, sourceName, notifyEnabled = 1, domainName = null) {
   const vapid = vapidFromEnv(env);
   if (!vapid) return; // silently skip if not configured
 
@@ -26,35 +26,43 @@ export async function notifyNewPost(env, post, domainSlug, sourceType, sourceNam
   const publishedAt = post.published_at ? new Date(post.published_at).getTime() : null;
   if (publishedAt && publishedAt < Date.now() - 24 * 60 * 60 * 1000) return;
 
+  // Every registered device for this user. Multiple rows per user_id is
+  // intended (one per browser/device).
   const subs = await all(env,
     `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`,
     [post.user_id]);
   if (!subs.length) return;
 
-  const title = `Tsundoku · ${domainSlug || 'feed'}`;
-  const sourceTag = typeShort(sourceType);
+  const sourceTypeShort = typeShort(sourceType);
   const bodyLine = post.title
-    ? `${sourceTag} · ${post.title}`
-    : `${sourceTag} · ${sourceName || ''} — ${(post.content_text || '').slice(0, 60)}`;
+    ? `${sourceTypeShort} · ${post.title}`
+    : `${sourceTypeShort} · ${sourceName || ''} — ${(post.content_text || '').slice(0, 60)}`;
   const payload = JSON.stringify({
-    title,
-    body: bodyLine.slice(0, 160),
-    url:  `/d/${domainSlug}/p/${post.id}`,
-    tag:  `tsundoku-post-${post.id}`,
+    title: `Tsundoku · ${domainName || domainSlug || 'feed'}`,
+    body:  bodyLine.slice(0, 160),
+    url:   `/d/${domainSlug}/p/${post.id}`,
+    tag:   `tsundoku-post-${post.id}`,
+    image: post.image_url || undefined,
   });
 
-  // Send in parallel; clean up gone subscriptions.
-  await Promise.allSettled(subs.map(async (s) => {
-    const r = await sendWebPush({
-      subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-      payload,
-      vapid,
-    });
-    if (r.expired) {
-      console.log(`[push] dropping expired subscription ${s.id}`);
-      await run(env, `DELETE FROM push_subscriptions WHERE id = ?`, [s.id]);
-    } else if (!r.ok) {
-      console.warn(`[push] sub ${s.id} → ${r.status}`);
+  // One device failing must never abort delivery to the others. Drop
+  // subscriptions the push service has retired (404/410); log everything else
+  // and keep going.
+  for (const s of subs) {
+    try {
+      const r = await sendWebPush({
+        subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        payload,
+        vapid,
+      });
+      if (r.status === 404 || r.status === 410 || r.expired) {
+        console.log(`[push] dropping stale subscription ${s.id} (${r.status})`);
+        await run(env, `DELETE FROM push_subscriptions WHERE id = ?`, [s.id]);
+      } else if (!r.ok) {
+        console.warn(`[push] sub ${s.id} → ${r.status}`);
+      }
+    } catch (e) {
+      console.warn(`[push] sub ${s.id} send failed: ${e.message}`);
     }
-  }));
+  }
 }

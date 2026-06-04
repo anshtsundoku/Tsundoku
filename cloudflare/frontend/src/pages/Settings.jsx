@@ -75,7 +75,7 @@ export default function Settings() {
   const doLogout = async () => { await logout(); window.location.reload(); };
 
   // Push notifications state
-  const [push, setPush] = useState({ supported: false, configured: false, subscribed: false, permission: 'default' });
+  const [push, setPush] = useState({ supported: false, iosNeedsInstall: false, configured: false, subscribed: false, permission: 'default' });
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState(null);
 
@@ -120,28 +120,6 @@ export default function Settings() {
     setTimeout(() => setRefreshState('idle'), 3500);
   };
 
-  // Decide what the notifications row should say
-  const pushLabel = (() => {
-    if (!push.supported) return 'Not supported on this browser';
-    if (!push.configured) return 'Server not configured';
-    if (push.permission === 'denied') return 'Blocked in browser settings';
-    if (push.subscribed) return 'On — pinging this device';
-    return 'Off';
-  })();
-
-  const pushCta = (() => {
-    if (!push.supported || !push.configured || push.permission === 'denied') return null;
-    return (
-      <button
-        onClick={togglePush}
-        disabled={pushBusy}
-        className="text-xs tt-label tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
-      >
-        {pushBusy ? '…' : push.subscribed ? 'Turn off' : 'Turn on'}
-      </button>
-    );
-  })();
-
   return (
     <div className="max-w-2xl mx-auto">
       <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
@@ -150,28 +128,89 @@ export default function Settings() {
       <ConnectSources pairings={pairings} onRevokePairing={revokePairing} />
 
       <Section title="Notifications">
-        <Row
-          label="Push for every new post"
-          desc={pushError ? pushError : pushLabel}
-          right={pushCta}
-          bordered={push.subscribed}
-        />
-        {push.subscribed && (
-          <Row
-            label="Per-source control"
-            desc="silence specific sources without turning off push entirely."
-            right={
-              <Link to="/sources" className="eyebrow text-wood hover:underline whitespace-nowrap">
-                Manage →
-              </Link>
-            }
-          />
-        )}
-        {push.supported && push.configured && push.permission !== 'denied' && (
-          <p className="text-xs text-muted pb-3 -mt-2">
-            Tip: on iPhone, install Tsundoku to your home screen first (Share → Add to Home Screen). Push only works from the installed app.
-          </p>
-        )}
+        {(() => {
+          // State 1 — this browser can't do web push at all.
+          if (!push.supported || !push.configured) {
+            return (
+              <Row
+                label="Push"
+                desc={!push.supported
+                  ? 'not supported on this browser.'
+                  : "push isn't configured on the server yet."}
+              />
+            );
+          }
+
+          // State 3 — notifications are blocked in browser/OS settings.
+          if (push.permission === 'denied') {
+            return (
+              <Row
+                label="Push"
+                desc="blocked in your browser settings. allow notifications for tsundoku, then reload."
+              />
+            );
+          }
+
+          // State 5 — subscribed on this device. Checked before iosNeedsInstall
+          // so an installed iphone keeps full per-device control.
+          if (push.subscribed) {
+            return (
+              <>
+                <Row
+                  label="Push"
+                  desc={pushError ? pushError : 'on — pinging this device.'}
+                  right={
+                    <button
+                      onClick={togglePush}
+                      disabled={pushBusy}
+                      className="eyebrow text-wood hover:underline whitespace-nowrap disabled:opacity-50"
+                    >
+                      {pushBusy ? '…' : 'turn off'}
+                    </button>
+                  }
+                  bordered
+                />
+                <Row
+                  label="Per-source control"
+                  desc="silence specific sources without turning off push entirely."
+                  right={
+                    <Link to="/sources" className="eyebrow text-wood hover:underline whitespace-nowrap">
+                      Manage →
+                    </Link>
+                  }
+                />
+              </>
+            );
+          }
+
+          // State 2 — iphone safari that isn't installed to the home screen.
+          // No button: subscribing can't work until it's a home-screen app.
+          if (push.iosNeedsInstall) {
+            return (
+              <Row
+                label="Push"
+                desc="install tsundoku to your home screen to enable push on iphone. tap share → add to home screen."
+              />
+            );
+          }
+
+          // State 4 — supported, allowed, not yet subscribed.
+          return (
+            <Row
+              label="Push"
+              desc={pushError ? pushError : 'get a quiet ping when something new shows up.'}
+              right={
+                <button
+                  onClick={togglePush}
+                  disabled={pushBusy}
+                  className="text-xs tt-label tracking-eyebrow bg-wood text-bg font-bold px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
+                >
+                  {pushBusy ? '…' : 'turn on'}
+                </button>
+              }
+            />
+          );
+        })()}
       </Section>
 
       <BrowserExtensions pairings={pairings} onRevoke={revokePairing} />

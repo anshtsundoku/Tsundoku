@@ -46,7 +46,22 @@ async function fetchVapidKey() {
 }
 
 export async function getPushStatus() {
-  const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+  // Push needs all three primitives. Desktop and Android regular tabs have
+  // them, so they count as supported (only true outliers fall through).
+  const supported =
+    'Notification' in window &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window;
+
+  // iOS only delivers web push from a home-screen-installed PWA. Detect the
+  // "needs install first" case so the UI can show install copy instead of a
+  // turn-on button that would silently fail.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isPWA =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    navigator.standalone === true;
+  const iosNeedsInstall = isIOS && !isPWA;
+
   const permission = supported ? Notification.permission : 'unsupported';
 
   let configured = false;
@@ -59,7 +74,7 @@ export async function getPushStatus() {
     subscribed = Boolean(sub);
   }
 
-  return { supported, configured, subscribed, permission };
+  return { supported, iosNeedsInstall, configured, subscribed, permission };
 }
 
 export async function subscribeToPush() {

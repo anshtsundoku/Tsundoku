@@ -8,6 +8,15 @@ import { precacheAndRoute } from 'workbox-precaching';
 
 precacheAndRoute(self.__WB_MANIFEST || []);
 
+// Take over as soon as a new SW is installed so push handlers update without
+// waiting for every tab to close. (injectManifest doesn't add these for us.)
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // ─── Push handler ────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = {};
@@ -15,12 +24,14 @@ self.addEventListener('push', (event) => {
 
   const title = data.title || 'Tsundoku';
   const options = {
-    body:      data.body  || '',
-    icon:      '/icon-dark-192.png',
-    badge:     '/icon-dark-192.png',
-    data:      { url: data.url || '/' },
-    tag:       data.tag || 'tsundoku',
-    renotify:  false,
+    body:               data.body  || '',
+    icon:               '/icon-dark-192.png',
+    badge:              '/icon-dark-192.png',
+    image:              data.image,
+    data:               { url: data.url || '/' },
+    tag:                data.tag || 'tsundoku',
+    renotify:           false,
+    requireInteraction: false,
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
