@@ -1,0 +1,12 @@
+# Cloudflare Pages response headers.
+# no-transform stops the CDN from re-compressing/mangling the binary zip,
+# which is what corrupts the extension download (Archive Utility: "unsupported format").
+
+/tsundoku-extension.zip
+  Content-Type: application/zip
+  Content-Disposition: attachment; filename="tsundoku-extension.zip"
+  Cache-Control: public, max-age=300, no-transform
+
+/extension-version.json
+  Content-Type: application/json
+  Cache-Control: public, max-age=60, no-transform

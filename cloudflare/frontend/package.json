@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "bundle-extension": "rm -f public/tsundoku-extension.zip && (cd ../../extension && zip -r ../cloudflare/frontend/public/tsundoku-extension.zip . -x '*.DS_Store' '*.git*') && node -e \"const fs=require('fs');const m=require('../../extension/manifest.json');fs.writeFileSync('public/extension-version.json', JSON.stringify({version:m.version,built_at:new Date().toISOString()}))\"",
+    "build": "npm run bundle-extension && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {

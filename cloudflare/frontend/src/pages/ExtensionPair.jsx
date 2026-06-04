@@ -9,8 +9,18 @@ import { Brand } from '../App.jsx';
 // extension's content script injects window.__tsundokuExt into the page so we
 // can detect its presence without any redirects.
 
-const EXT_VERSION = '0.1.0';
 const CONTACT_EMAIL = 'anshdwiv5@gmail.com';
+
+// Small relative-time helper for the build timestamp (mirrors the one in
+// PostCard). Lowercase, calm copy: "built just now" / "built 3h ago".
+function builtAgo(iso) {
+  if (!iso) return '';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return 'built just now';
+  if (diff < 3600) return `built ${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `built ${Math.floor(diff / 3600)}h ago`;
+  return `built ${Math.floor(diff / 86400)}d ago`;
+}
 
 const SUBTITLES = {
   checking: 'checking for extension…',
@@ -25,6 +35,18 @@ export default function ExtensionPair() {
   const [extensionState, setExtensionState] = useState('checking');
   const [approveStatus, setApproveStatus] = useState('idle'); // idle | pairing | waiting | timeout
   const [error, setError] = useState(null);
+  const [extVersion, setExtVersion] = useState(null); // { version, built_at } | null
+
+  // Version of the downloadable zip, generated at build time alongside the zip.
+  // On failure we just render "version unknown" rather than blocking the page.
+  useEffect(() => {
+    let alive = true;
+    fetch('/extension-version.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => { if (alive) setExtVersion(v); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const waitTimer = useRef(null);
   const sessionPaired = useRef(false);
 
@@ -130,7 +152,7 @@ export default function ExtensionPair() {
 
         <div className="mt-8 transition-opacity duration-300">
           {extensionState === 'checking' && <Checking />}
-          {extensionState === 'not-installed' && <NotInstalled />}
+          {extensionState === 'not-installed' && <NotInstalled extVersion={extVersion} />}
           {extensionState === 'installed-not-paired' && (
             <InstalledNotPaired
               onApprove={approve}
@@ -155,7 +177,9 @@ function Checking() {
   );
 }
 
-function NotInstalled() {
+function NotInstalled({ extVersion }) {
+  const versionLabel = extVersion?.version ? `version ${extVersion.version}` : 'version unknown';
+  const builtLabel = builtAgo(extVersion?.built_at);
   return (
     <div className="space-y-3">
       <NumberedCard n={1} title="download the extension">
@@ -169,7 +193,9 @@ function NotInstalled() {
         >
           download tsundoku.zip
         </a>
-        <p className="mt-2 text-xs text-muted">version {EXT_VERSION}</p>
+        <p className="mt-2 text-xs text-muted">
+          {versionLabel}{builtLabel ? ` · ${builtLabel}` : ''}
+        </p>
       </NumberedCard>
 
       <NumberedCard n={2} title="install in chrome">
