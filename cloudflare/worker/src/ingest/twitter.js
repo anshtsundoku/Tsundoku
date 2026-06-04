@@ -6,7 +6,7 @@
 
 import { all, first } from '../lib/db.js';
 import { summarize } from '../services/summarizer.js';
-import { upsertPost } from './_common.js';
+import { upsertPost, markSourceStatus, markSourceError } from './_common.js';
 import { decryptOrNull } from '../lib/userCreds.js';
 import { selectUserBatch, yieldTick } from '../lib/cronFanout.js';
 
@@ -145,39 +145,71 @@ async function runTwitterForUser(env, userId) {
   const tw = { authToken, ct0, kdt: env.TWITTER_KDT, guestId: env.TWITTER_GUEST_ID };
 
   const sources = await all(env,
-    `SELECT * FROM sources WHERE user_id = ? AND type = 'twitter' AND active = 1`, [userId]);
+    `SELECT * FROM sources WHERE user_id = ? AND type = 'twitter' AND active = 1
+        AND (paused_until IS NULL OR paused_until <= datetime('now'))`, [userId]);
   // Process at most N per tick (oldest-polled first) to stay polite.
   const max = Number(env.TWITTER_POLL_HANDLES_PER_TICK || 5);
   sources.sort((a, b) => (a.last_polled_at || '').localeCompare(b.last_polled_at || ''));
   const handleBatch = sources.slice(0, max);
 
   for (const s of handleBatch) {
-    try {
-      const uid = await userByScreenName(tw, s.identifier);
-      if (!uid) { console.warn('[twitter] user not found', s.identifier); continue; }
-      const tweets = await userTweets(tw, uid, 10);
-      for (const t of tweets) {
-        const { tldr, read_time_min } = await summarize({
-          text: t.full_text || '', kind: 'tweet', geminiApiKey,
-        });
-        await upsertPost(env, {
-          source_id:   s.id,
-          external_id: t.id,
-          title:       null,
-          author:      `@${s.identifier}`,
-          url:         `https://x.com/${s.identifier}/status/${t.id}`,
-          content_text: t.full_text || '',
-          image_url:   t.image_url,
-          video_url:   t.video_url,
-          tldr,
-          read_time_min,
-          published_at: t.created_at ? new Date(t.created_at).toISOString() : null,
-        });
-      }
-      console.log(`[twitter] u${userId} @${s.identifier} ok (${tweets.length})`);
-      await new Promise(r => setTimeout(r, 800));   // friendly pacing
-    } catch (e) {
-      console.warn(`[twitter] @${s.identifier} failed:`, e.message);
-    }
+    await ingestTwitterSource(env, s, tw, geminiApiKey);
+    await new Promise(r => setTimeout(r, 800));   // friendly pacing
   }
+}
+
+// Ingest a single twitter source and record its health status. Returns the
+// number of newly inserted posts.
+async function ingestTwitterSource(env, s, tw, geminiApiKey) {
+  let inserted = 0;
+  try {
+    const uid = await userByScreenName(tw, s.identifier);
+    if (!uid) {
+      console.warn('[twitter] user not found', s.identifier);
+      await markSourceError(env, s.id);
+      return 0;
+    }
+    const tweets = await userTweets(tw, uid, 10);
+    for (const t of tweets) {
+      const { tldr, read_time_min } = await summarize({
+        text: t.full_text || '', kind: 'tweet', geminiApiKey,
+      });
+      const post = await upsertPost(env, {
+        source_id:   s.id,
+        external_id: t.id,
+        title:       null,
+        author:      `@${s.identifier}`,
+        url:         `https://x.com/${s.identifier}/status/${t.id}`,
+        content_text: t.full_text || '',
+        image_url:   t.image_url,
+        video_url:   t.video_url,
+        tldr,
+        read_time_min,
+        published_at: t.created_at ? new Date(t.created_at).toISOString() : null,
+      });
+      if (post) inserted++;
+    }
+    await markSourceStatus(env, s.id, inserted > 0);
+    console.log(`[twitter] @${s.identifier} ok (${tweets.length}, ${inserted} new)`);
+  } catch (e) {
+    console.warn(`[twitter] @${s.identifier} failed:`, e.message);
+    await markSourceError(env, s.id);
+  }
+  return inserted;
+}
+
+// Manual single-source ingest (POST /api/sources/:id/ingest-now).
+export async function ingestTwitterSourceNow(env, s) {
+  const u = await first(env, `
+    SELECT gemini_api_key_enc, twitter_auth_token_enc, twitter_ct0_enc
+      FROM users WHERE id = ?`, [s.user_id]);
+  const authToken = await decryptOrNull(env, u?.twitter_auth_token_enc);
+  const ct0       = await decryptOrNull(env, u?.twitter_ct0_enc);
+  if (!authToken || !ct0) {        // no cookies → can't poll; surface as error
+    await markSourceError(env, s.id);
+    return 0;
+  }
+  const geminiApiKey = await decryptOrNull(env, u?.gemini_api_key_enc);
+  const tw = { authToken, ct0, kdt: env.TWITTER_KDT, guestId: env.TWITTER_GUEST_ID };
+  return ingestTwitterSource(env, s, tw, geminiApiKey);
 }

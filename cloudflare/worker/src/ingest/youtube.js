@@ -9,7 +9,7 @@
 import { all, first } from '../lib/db.js';
 import { summarizeVideo } from '../services/summarizer.js';
 import { fetchDurations, parseIsoDurationMin } from '../lib/youtubeDurations.js';
-import { upsertPost } from './_common.js';
+import { upsertPost, markSourceStatus, markSourceError } from './_common.js';
 import { decryptOrNull } from '../lib/userCreds.js';
 import { selectUserBatch, yieldTick } from '../lib/cronFanout.js';
 
@@ -38,16 +38,37 @@ async function runYoutubeForUser(env, userId) {
   const ytApiKey = await decryptOrNull(env, u?.yt_api_key_enc);
 
   const sources = await all(env,
-    `SELECT * FROM sources WHERE user_id = ? AND type = 'youtube' AND active = 1`, [userId]);
+    `SELECT * FROM sources WHERE user_id = ? AND type = 'youtube' AND active = 1
+        AND (paused_until IS NULL OR paused_until <= datetime('now'))`, [userId]);
 
   for (const s of sources) {
-    try {
-      if (ytApiKey) await ingestViaApi(env, s, ytApiKey, geminiApiKey);
-      else          await ingestViaRss(env, s, geminiApiKey);
-    } catch (e) {
-      console.warn(`[youtube] ${s.identifier} failed`, e.message);
-    }
+    await ingestYoutubeSource(env, s, ytApiKey, geminiApiKey);
   }
+}
+
+// Ingest a single youtube source and record its health status. Returns the
+// number of newly inserted posts.
+async function ingestYoutubeSource(env, s, ytApiKey, geminiApiKey) {
+  let inserted = 0;
+  try {
+    inserted = ytApiKey
+      ? await ingestViaApi(env, s, ytApiKey, geminiApiKey)
+      : await ingestViaRss(env, s, geminiApiKey);
+    await markSourceStatus(env, s.id, inserted > 0);
+  } catch (e) {
+    console.warn(`[youtube] ${s.identifier} failed`, e.message);
+    await markSourceError(env, s.id);
+  }
+  return inserted;
+}
+
+// Manual single-source ingest (POST /api/sources/:id/ingest-now).
+export async function ingestYoutubeSourceNow(env, s) {
+  const u = await first(env,
+    `SELECT gemini_api_key_enc, yt_api_key_enc FROM users WHERE id = ?`, [s.user_id]);
+  const geminiApiKey = await decryptOrNull(env, u?.gemini_api_key_enc);
+  const ytApiKey = await decryptOrNull(env, u?.yt_api_key_enc);
+  return ingestYoutubeSource(env, s, ytApiKey, geminiApiKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -102,12 +123,13 @@ async function fetchTranscript(videoId) {
 
 async function ingestViaApi(env, s, ytApiKey, geminiApiKey) {
   const cid = await resolveChannelId(s.identifier, ytApiKey);
-  if (!cid) return;
+  if (!cid) throw new Error(`could not resolve channel ${s.identifier}`);
   const vids = await recentVideos(cid, ytApiKey, s.last_polled_at, env.YOUTUBE_MAX_PER_CHANNEL);
 
   const videoIds = vids.map(v => v?.id?.videoId).filter(Boolean);
   const durations = await fetchDurations(videoIds, ytApiKey);
 
+  let inserted = 0;
   for (const v of vids) {
     const vid = v?.id?.videoId;
     if (!vid) continue;
@@ -120,7 +142,7 @@ async function ingestViaApi(env, s, ytApiKey, geminiApiKey) {
     });
     const videoMin = parseIsoDurationMin(durations[vid]);
     const read_time_min = (summaryMin || 0) + videoMin;
-    await upsertPost(env, {
+    const post = await upsertPost(env, {
       source_id: s.id,
       external_id: vid,
       title: v.snippet?.title || null,
@@ -133,8 +155,10 @@ async function ingestViaApi(env, s, ytApiKey, geminiApiKey) {
       read_time_min,
       published_at: v.snippet?.publishedAt || null,
     });
+    if (post) inserted++;
   }
-  console.log(`[youtube:api] ${s.identifier} ok (${vids.length})`);
+  console.log(`[youtube:api] ${s.identifier} ok (${vids.length}, ${inserted} new)`);
+  return inserted;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,20 +208,21 @@ function parseYoutubeFeed(xml) {
 
 async function ingestViaRss(env, s, geminiApiKey) {
   const cid = await resolveChannelIdKeyless(s.identifier);
-  if (!cid) { console.warn('[youtube:rss] cannot resolve channel', s.identifier); return; }
+  if (!cid) throw new Error(`cannot resolve channel ${s.identifier}`);
   const r = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${cid}`, {
     headers: { 'user-agent': 'Mindful/1.0' },
   });
-  if (!r.ok) { console.warn('[youtube:rss]', s.identifier, r.status); return; }
+  if (!r.ok) throw new Error(`youtube rss ${r.status}`);
   const entries = parseYoutubeFeed(await r.text())
     .slice(0, Number(env.YOUTUBE_MAX_PER_CHANNEL || 5));
 
+  let inserted = 0;
   for (const v of entries) {
     // No transcript/durations on the keyless path — summarize the description.
     const { detailed, tldr, read_time_min } = await summarizeVideo({
       title: v.title, transcript: v.desc, hasTranscript: false, geminiApiKey,
     });
-    await upsertPost(env, {
+    const post = await upsertPost(env, {
       source_id: s.id,
       external_id: v.vid,
       title: v.title || null,
@@ -210,6 +235,8 @@ async function ingestViaRss(env, s, geminiApiKey) {
       read_time_min,
       published_at: v.published || null,
     });
+    if (post) inserted++;
   }
-  console.log(`[youtube:rss] ${s.identifier} ok (${entries.length})`);
+  console.log(`[youtube:rss] ${s.identifier} ok (${entries.length}, ${inserted} new)`);
+  return inserted;
 }

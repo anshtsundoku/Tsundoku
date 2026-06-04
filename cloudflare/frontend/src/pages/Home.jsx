@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BookPlus } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
+import { usePullToRefresh } from '../lib/pullToRefresh.js';
 import { DomainIcon, PlusIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
 import { typeLabel, VISIBLE_TYPES } from '../lib/labels.js';
@@ -60,6 +61,7 @@ export default function Home() {
 
   useEffect(() => { load(); }, []);
   usePoll(load, 15000, []);
+  const pull = usePullToRefresh(load);
 
   if (loading) return <SkeletonGrid n={8} />;
   if (error)   return <div className="text-wood text-sm">Couldn't load: {error}</div>;
@@ -130,11 +132,42 @@ export default function Home() {
   }
 
   // Has domains but no sources yet (common right after onboarding when the
-  // user skipped every credential/source step) — nudge them to add one.
+  // user skipped every credential/source step) — show a polished empty state.
   const noSources = domains.length > 0 && sources.length === 0;
 
+  if (noSources) {
+    return (
+      <div {...pull.handlers}>
+        <PullSpinner pull={pull} />
+        <div className="relative flex flex-col items-center text-center py-20 px-4">
+          {/* Decorative books behind the copy. */}
+          <svg
+            viewBox="0 0 90 120" width="90" height="120" aria-hidden="true"
+            className="absolute left-1/2 -translate-x-1/2 top-8 text-wood pointer-events-none"
+            style={{ opacity: 0.15 }}
+          >
+            <rect x="6"  y="14" width="20" height="96"  rx="3" fill="currentColor" />
+            <rect x="35" y="2"  width="20" height="108" rx="3" fill="currentColor" />
+            <rect x="64" y="18" width="20" height="92"  rx="3" fill="currentColor" />
+          </svg>
+          <h2 className="relative tt-title text-2xl font-bold tracking-tight mb-3">your shelf is empty.</h2>
+          <p className="relative text-sm text-muted max-w-sm leading-relaxed mb-6">
+            add a source to start filling it up. blogs, youtube channels, x accounts, newsletters — pick what you actually read.
+          </p>
+          <Link
+            to="/sources"
+            className="relative bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 transition-colors"
+          >
+            add your first source →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div {...pull.handlers}>
+      <PullSpinner pull={pull} />
       {showPushBanner && (
         <div className="push-banner-fade-in mb-8 bg-elev border-t border-b border-border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <p className="text-sm text-ink flex-1">want a quiet ping when something new shows up?</p>
@@ -173,15 +206,6 @@ export default function Home() {
             </button>
           </div>
         </div>
-      )}
-
-      {noSources && (
-        <Link
-          to="/sources"
-          className="block mb-8 bg-elev border border-wood px-4 py-3 hover:bg-ink hover:text-bg transition-colors"
-        >
-          <span className="text-sm font-bold">you have a domain. add your first source →</span>
-        </Link>
       )}
 
       <section className="mb-8 sm:mb-10">
@@ -249,6 +273,21 @@ export default function Home() {
       {modalOpen && (
         <DomainModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); load(); }} />
       )}
+    </div>
+  );
+}
+
+// Small wood-coloured pull-to-refresh indicator shown at the top of the feed.
+function PullSpinner({ pull }) {
+  if (!pull.isRefreshing && pull.pullDistance <= 0) return null;
+  const height = pull.isRefreshing ? 36 : pull.pullDistance;
+  const opacity = pull.isRefreshing ? 1 : Math.min(1, pull.pullDistance / 80);
+  return (
+    <div className="flex items-center justify-center overflow-hidden" style={{ height }}>
+      <span
+        className="inline-block w-5 h-5 rounded-full border-2 border-wood border-t-transparent animate-spin"
+        style={{ opacity }}
+      />
     </div>
   );
 }

@@ -9,7 +9,7 @@
 import { Router, json, handleOptions, withCors } from './lib/router.js';
 import { currentUser } from './lib/auth.js';
 import { listDomains, createDomain, updateDomain, deleteDomain } from './routes/domains.js';
-import { listSources, createSource, deleteSource, patchSource, bulkNotifications } from './routes/sources.js';
+import { listSources, createSource, deleteSource, patchSource, bulkNotifications, ingestNow } from './routes/sources.js';
 import { listPosts, getPost, patchPost, sourceCounts, searchPosts, libraryPosts, markReadBulk } from './routes/posts.js';
 import { listHighlights, createHighlight, deleteHighlight } from './routes/highlights.js';
 import { triggerIngest, status, regenerateTldrs, geminiTest, pushAudit } from './routes/admin.js';
@@ -17,7 +17,7 @@ import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
 import { googleAuth, logout, me, onboardingComplete, onboardingStep } from './routes/auth.js';
 import { getCredentials, patchCredential, deleteCredential } from './routes/credentials.js';
-import { deleteAccount }                    from './routes/account.js';
+import { deleteAccount, exportData }        from './routes/account.js';
 import { pair as extPair, status as extStatus, twitterCookies as extTwitterCookies,
          listPairings as extListPairings, deletePairing as extDeletePairing } from './routes/extension.js';
 
@@ -37,6 +37,7 @@ const router = new Router()
   .patch('/api/auth/onboarding-step',    onboardingStep)
   // Account lifecycle
   .delete('/api/account',                deleteAccount)
+  .get('/api/account/export',            exportData)
   // Browser extension (x.com cookie sync). status + twitter-cookies use the
   // pairing bearer token (see ANONYMOUS_ROUTES); the rest use the session.
   .post('/api/extension/pair',           extPair)
@@ -57,6 +58,7 @@ const router = new Router()
   .get('/api/sources',                   listSources)
   .post('/api/sources',                  createSource)
   .post('/api/sources/notifications/bulk', bulkNotifications)
+  .post('/api/sources/:id/ingest-now',   ingestNow)
   .patch('/api/sources/:id',             patchSource)
   .delete('/api/sources/:id',            deleteSource)
   // Posts

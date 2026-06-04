@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { usePoll } from '../lib/poll.js';
+import { usePullToRefresh } from '../lib/pullToRefresh.js';
 import PostCard from '../components/PostCard.jsx';
 import PostDetail from '../components/PostDetail.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
@@ -53,6 +54,7 @@ export default function Domain() {
 
   useEffect(() => { setLoading(true); setConfirmAll(false); load(); }, [slug, tab]);
   usePoll(load, 15000, [slug, tab]);
+  const pull = usePullToRefresh(load);
 
   // Direct fetch fallback when arriving at /d/:slug/p/:postId fresh.
   const [postDirect, setPostDirect] = useState(null);
@@ -155,7 +157,18 @@ export default function Domain() {
   }[tab];
 
   return (
-    <div>
+    <div {...pull.handlers}>
+      {(pull.isRefreshing || pull.pullDistance > 0) && (
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ height: pull.isRefreshing ? 36 : pull.pullDistance }}
+        >
+          <span
+            className="inline-block w-5 h-5 rounded-full border-2 border-wood border-t-transparent animate-spin"
+            style={{ opacity: pull.isRefreshing ? 1 : Math.min(1, pull.pullDistance / 80) }}
+          />
+        </div>
+      )}
       <div className="mb-6">
         <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Domains</Link>
         <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight tt-title leading-none break-words">{domain?.name || slug}</h1>

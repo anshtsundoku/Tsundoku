@@ -2,6 +2,10 @@ import { all, first, run } from '../lib/db.js';
 import { currentUser } from '../lib/auth.js';
 import { json } from '../lib/router.js';
 import { discoverFeed } from '../services/feedDiscovery.js';
+import { ingestRssSourceNow } from '../ingest/rss.js';
+import { ingestYoutubeSourceNow } from '../ingest/youtube.js';
+import { ingestTwitterSourceNow } from '../ingest/twitter.js';
+import { ingestNewsletterSourceNow } from '../ingest/newsletter.js';
 
 // Source types we expose to the API. 'rss' is intentionally NOT in the
 // user-facing UI list (the frontend hides it) because 'website' covers that
@@ -157,6 +161,12 @@ export async function patchSource(request, { env, params }) {
     ? (body.notify_enabled ? 1 : 0)
     : (existing.notify_enabled ?? 1);
 
+  // Pause: an ISO datetime in the future mutes the source; null unpauses.
+  // `undefined` (field absent) leaves the existing value untouched.
+  const newPausedUntil = body.paused_until !== undefined
+    ? body.paused_until
+    : (existing.paused_until ?? null);
+
   const updated = await first(env, `
     UPDATE sources
        SET display_name = ?,
@@ -164,10 +174,39 @@ export async function patchSource(request, { env, params }) {
            feed_url     = ?,
            domain_id    = ?,
            active       = ?,
-           notify_enabled = ?
+           notify_enabled = ?,
+           paused_until = ?
      WHERE id = ? AND user_id = ?
     RETURNING *
-  `, [newDisplayName, newIdentifier, newFeedUrl, newDomainId, newActive, newNotifyEnabled, params.id, u.id]);
+  `, [newDisplayName, newIdentifier, newFeedUrl, newDomainId, newActive, newNotifyEnabled, newPausedUntil, params.id, u.id]);
 
   return json({ ...updated, discovery_warning });
+}
+
+// POST /api/sources/:id/ingest-now — manually trigger ingestion for one source.
+// Auth-required and ownership-checked. Returns 202 immediately and runs the
+// fetch in the background via ctx.waitUntil.
+const INGEST_NOW = {
+  rss:        ingestRssSourceNow,
+  website:    ingestRssSourceNow,
+  podcast:    ingestRssSourceNow,
+  youtube:    ingestYoutubeSourceNow,
+  twitter:    ingestTwitterSourceNow,
+  newsletter: ingestNewsletterSourceNow,
+  gmail:      ingestNewsletterSourceNow,
+};
+
+export async function ingestNow(request, { env, ctx, params }) {
+  const u = await currentUser(env, request);
+  const s = await first(env,
+    `SELECT * FROM sources WHERE id = ? AND user_id = ?`, [params.id, u.id]);
+  if (!s) return json({ error: 'not found' }, 404);
+
+  const dispatch = INGEST_NOW[s.type];
+  if (!dispatch) return json({ error: 'unsupported source type' }, 400);
+
+  ctx.waitUntil(
+    dispatch(env, s).catch(e => console.error('[ingest-now]', s.id, e.message))
+  );
+  return json({ queued: true }, 202);
 }

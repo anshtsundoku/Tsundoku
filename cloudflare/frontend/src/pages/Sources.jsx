@@ -1,11 +1,49 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PauseCircle, PlayCircle } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { typeLabel } from '../lib/labels.js';
 import { PlusIcon, TrashIcon, BellIcon, BellOffIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
 import { getPushStatus, subscribeToPush } from '../lib/push.js';
+
+// D1 timestamps come back as "YYYY-MM-DD HH:MM:SS" (UTC, no zone); paused_until
+// is set client-side as a full ISO string. Normalize both, then render a short
+// relative time that works for past ("2h ago") and future ("in 7d").
+function parseTs(s) {
+  if (!s) return NaN;
+  const str = String(s);
+  const iso = str.includes('T') ? str : str.replace(' ', 'T') + 'Z';
+  return new Date(iso).getTime();
+}
+
+function relTime(s) {
+  const t = parseTs(s);
+  if (!Number.isFinite(t)) return 'never';
+  const diff = (t - Date.now()) / 1000;   // positive = future
+  const abs = Math.abs(diff);
+  if (abs < 60) return 'just now';
+  const unit = abs < 3600 ? `${Math.floor(abs / 60)}m`
+    : abs < 86400 ? `${Math.floor(abs / 3600)}h`
+    : `${Math.floor(abs / 86400)}d`;
+  return diff > 0 ? `in ${unit}` : `${unit} ago`;
+}
+
+// Per-source health dot colour. 'pending' (and anything unknown) is gray.
+function statusColor(status) {
+  switch (status) {
+    case 'ok':    return '#22c55e';   // green
+    case 'idle':  return '#eab308';   // yellow
+    case 'error': return '#ef4444';   // red
+    default:      return '#9ca3af';   // gray — pending / never polled
+  }
+}
+
+function isPausedNow(s) {
+  const t = parseTs(s?.paused_until);
+  return Number.isFinite(t) && t > Date.now();
+}
 
 // Shared with the Home.jsx contextual push banner so the two prompts don't
 // double-nudge: dismissing either one suppresses the other.
@@ -52,6 +90,7 @@ export default function Sources() {
   const [notifyToast, setNotifyToast] = useState(null);
   const [pushNudge, setPushNudge] = useState(false);   // one-time "turn on push?" banner
   const [pushNudgeBusy, setPushNudgeBusy] = useState(false);
+  const [ingesting, setIngesting] = useState({});      // { [sourceId]: true } while first fetch runs
 
   const load = async () => {
     try {
@@ -115,12 +154,58 @@ export default function Sources() {
       }
       setForm({ type: form.type, identifier: '', display_name: '', domain_slug: form.domain_slug });
       await load();
-      toast('source added.');
+      // Kick off a manual first fetch and let its outcome own the final toast
+      // (avoids double-toasting "source added.").
+      if (result?.id) trackFirstIngest(result.id);
+      else toast('source added.');
       maybePushNudge();
     } catch (err) {
       setNotice({ kind: 'warn', text: err.message });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Trigger ingest-now for a freshly added source, then poll /sources every 2s
+  // (up to 30s) until its last_status flips away from 'pending'. The status dot
+  // shows a spinner overlay while this runs.
+  const trackFirstIngest = async (id) => {
+    setIngesting(prev => ({ ...prev, [id]: true }));
+    const stop = () => setIngesting(prev => { const n = { ...prev }; delete n[id]; return n; });
+    try { await api.ingestNow(id); } catch { /* the poll still runs */ }
+
+    const start = Date.now();
+    const tick = async () => {
+      try {
+        const ss = await api.listSources();
+        setSources(ss || []);
+        const s = (ss || []).find(x => x.id === id);
+        if (s && s.last_status && s.last_status !== 'pending') {
+          stop();
+          if (s.last_status === 'error') {
+            toast('source added — first fetch failed. check your credentials.', { kind: 'error' });
+          } else {
+            toast('source added.');
+          }
+          return;
+        }
+      } catch { /* transient — keep polling */ }
+      if (Date.now() - start >= 30000) { stop(); return; }
+      setTimeout(tick, 2000);
+    };
+    setTimeout(tick, 2000);
+  };
+
+  const togglePause = async (s) => {
+    const paused_until = isPausedNow(s)
+      ? null
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    setSources(prev => prev.map(x => (x.id === s.id ? { ...x, paused_until } : x)));
+    try {
+      await api.patchSource(s.id, { paused_until });
+    } catch (err) {
+      setNotice({ kind: 'warn', text: err.message });
+      await load();
     }
   };
 
@@ -404,12 +489,43 @@ export default function Sources() {
                   <li key={s.id} className="px-4 py-3 flex items-center gap-3">
                     <span className="eyebrow text-wood w-20 shrink-0">{typeLabel(s.type)}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold tracking-tight truncate">{s.display_name || s.identifier}</div>
+                      <div className="font-bold tracking-tight flex items-center gap-2">
+                        {ingesting[s.id] ? (
+                          <span
+                            className="inline-block w-3 h-3 rounded-full border-2 border-wood border-t-transparent animate-spin shrink-0"
+                            aria-label="fetching"
+                          />
+                        ) : (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{ background: statusColor(s.last_status) }}
+                            title={`last fetched: ${relTime(s.last_status_at)}`}
+                            aria-label={`status: ${s.last_status || 'pending'}`}
+                          />
+                        )}
+                        <span className="truncate">{s.display_name || s.identifier}</span>
+                      </div>
                       <div className="text-xs text-muted truncate">
                         {s.identifier}
                         {!s.active && <span className="ml-2 text-wood">· paused</span>}
                       </div>
+                      {isPausedNow(s) && (
+                        <div className="text-xs text-muted italic">
+                          paused · resumes {relTime(s.paused_until)}
+                        </div>
+                      )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => togglePause(s)}
+                      className={`p-1.5 transition-colors ${isPausedNow(s) ? 'text-wood' : 'text-muted hover:text-ink'}`}
+                      title={isPausedNow(s) ? 'resume this source' : 'pause for 7 days'}
+                      aria-label={isPausedNow(s) ? 'Resume source' : 'Pause source'}
+                    >
+                      {isPausedNow(s)
+                        ? <PlayCircle className="w-4 h-4" />
+                        : <PauseCircle className="w-4 h-4" />}
+                    </button>
                     <button
                       type="button"
                       onClick={() => toggleNotify(s)}

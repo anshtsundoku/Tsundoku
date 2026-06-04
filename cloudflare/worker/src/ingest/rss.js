@@ -9,7 +9,7 @@ import { all, first } from '../lib/db.js';
 import { parseFeed } from '../services/rssParse.js';
 import { summarize } from '../services/summarizer.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
-import { upsertPost } from './_common.js';
+import { upsertPost, markSourceStatus, markSourceError } from './_common.js';
 import { decryptOrNull } from '../lib/userCreds.js';
 import { selectUserBatch, yieldTick } from '../lib/cronFanout.js';
 
@@ -36,49 +36,75 @@ async function runRssForUser(env, userId) {
 
   const sources = await all(env,
     `SELECT * FROM sources
-      WHERE user_id = ? AND type IN ('rss','website','podcast') AND active = 1`, [userId]);
+      WHERE user_id = ? AND type IN ('rss','website','podcast') AND active = 1
+        AND (paused_until IS NULL OR paused_until <= datetime('now'))`, [userId]);
 
   for (const s of sources) {
-    const feedUrl = s.feed_url || s.identifier;
-    if (!feedUrl) continue;
-    try {
-      const r = await fetch(feedUrl, {
-        headers: { 'user-agent': 'Mindful/1.0 (+https://github.com/mindful)' },
-        cf: { cacheTtl: 60 },
-      });
-      if (!r.ok) { console.warn('[rss]', feedUrl, r.status); continue; }
-      const xml  = await r.text();
-      const feed = parseFeed(xml);
-      const items = feed.items.slice(0, Number(env.RSS_MAX_ITEMS || 20));
-      for (const item of items) {
-        if (!item.contentText && !item.title) continue;
-        const kind = s.type === 'podcast' ? 'podcast episode' : 'article';
-        const { tldr, read_time_min: textMin } = await summarize({
-          title: item.title, text: item.contentText, kind, geminiApiKey,
-        });
-        // Blog posts that embed YouTube videos: add the video runtime to the
-        // read-time (needs the user's YT key; no-ops to 0 without one).
-        const embeddedVideoMin = s.type === 'website'
-          ? await totalEmbeddedYoutubeMin(item.contentHtml, ytApiKey)
-          : 0;
-        const read_time_min = (textMin || 0) + embeddedVideoMin;
-        await upsertPost(env, {
-          source_id:    s.id,
-          external_id:  item.guid || item.link || item.title,
-          title:        item.title || null,
-          author:       item.author || feed.title || null,
-          url:          item.link || null,
-          content_html: item.contentHtml,
-          content_text: item.contentText,
-          image_url:    item.image,
-          tldr,
-          read_time_min,
-          published_at: item.date,
-        });
-      }
-      console.log(`[rss] u${userId} ${s.identifier} ok (${items.length})`);
-    } catch (e) {
-      console.warn(`[rss] ${s.identifier} failed`, e.message);
-    }
+    await ingestRssSource(env, s, geminiApiKey, ytApiKey);
   }
+}
+
+// Ingest a single rss/website/podcast source and record its health status.
+// Returns the number of newly inserted posts.
+async function ingestRssSource(env, s, geminiApiKey, ytApiKey) {
+  const feedUrl = s.feed_url || s.identifier;
+  if (!feedUrl) return 0;
+  let inserted = 0;
+  try {
+    const r = await fetch(feedUrl, {
+      headers: { 'user-agent': 'Mindful/1.0 (+https://github.com/mindful)' },
+      cf: { cacheTtl: 60 },
+    });
+    if (!r.ok) {
+      console.warn('[rss]', feedUrl, r.status);
+      await markSourceError(env, s.id);
+      return 0;
+    }
+    const xml  = await r.text();
+    const feed = parseFeed(xml);
+    const items = feed.items.slice(0, Number(env.RSS_MAX_ITEMS || 20));
+    for (const item of items) {
+      if (!item.contentText && !item.title) continue;
+      const kind = s.type === 'podcast' ? 'podcast episode' : 'article';
+      const { tldr, read_time_min: textMin } = await summarize({
+        title: item.title, text: item.contentText, kind, geminiApiKey,
+      });
+      // Blog posts that embed YouTube videos: add the video runtime to the
+      // read-time (needs the user's YT key; no-ops to 0 without one).
+      const embeddedVideoMin = s.type === 'website'
+        ? await totalEmbeddedYoutubeMin(item.contentHtml, ytApiKey)
+        : 0;
+      const read_time_min = (textMin || 0) + embeddedVideoMin;
+      const post = await upsertPost(env, {
+        source_id:    s.id,
+        external_id:  item.guid || item.link || item.title,
+        title:        item.title || null,
+        author:       item.author || feed.title || null,
+        url:          item.link || null,
+        content_html: item.contentHtml,
+        content_text: item.contentText,
+        image_url:    item.image,
+        tldr,
+        read_time_min,
+        published_at: item.date,
+      });
+      if (post) inserted++;
+    }
+    await markSourceStatus(env, s.id, inserted > 0);
+    console.log(`[rss] ${s.identifier} ok (${items.length}, ${inserted} new)`);
+  } catch (e) {
+    console.warn(`[rss] ${s.identifier} failed`, e.message);
+    await markSourceError(env, s.id);
+  }
+  return inserted;
+}
+
+// Manual single-source ingest (POST /api/sources/:id/ingest-now). Loads the
+// owner's creds, then runs the same per-source path as the cron.
+export async function ingestRssSourceNow(env, s) {
+  const u = await first(env,
+    `SELECT gemini_api_key_enc, yt_api_key_enc FROM users WHERE id = ?`, [s.user_id]);
+  const geminiApiKey = await decryptOrNull(env, u?.gemini_api_key_enc);
+  const ytApiKey = await decryptOrNull(env, u?.yt_api_key_enc);
+  return ingestRssSource(env, s, geminiApiKey, ytApiKey);
 }

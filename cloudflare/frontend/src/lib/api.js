@@ -65,6 +65,8 @@ export const api = {
   completeOnboarding: () => request('/auth/onboarding-complete', { method: 'POST' }),
   setOnboardingStep: (step) => request('/auth/onboarding-step', { method: 'PATCH', body: JSON.stringify({ step }) }),
   deleteAccount: () => request('/account', { method: 'DELETE' }),
+  // Full JSON export of the user's data (credentials excluded server-side).
+  exportData: () => request('/account/export'),
 
   listDomains: () => request('/domains'),
   createDomain: (data) => request('/domains', { method: 'POST', body: JSON.stringify(data) }),
@@ -79,6 +81,8 @@ export const api = {
   bulkNotifications: (enabled) =>
     request('/sources/notifications/bulk', { method: 'POST', body: JSON.stringify({ enabled }) }),
   deleteSource: (id) => request(`/sources/${id}`, { method: 'DELETE' }),
+  // Trigger a manual first fetch for one source (used right after adding it).
+  ingestNow: (id) => request(`/sources/${id}/ingest-now`, { method: 'POST' }),
 
   listPosts: ({ domain, type, filter = 'unread', cursor } = {}) => {
     const q = new URLSearchParams({ filter });

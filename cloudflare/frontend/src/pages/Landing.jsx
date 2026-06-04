@@ -67,6 +67,10 @@ export default function Landing() {
       <h1 className="text-4xl sm:text-5xl font-bold tt-title tracking-tight leading-none">Tsundoku</h1>
       <p className="mt-4 text-muted text-base sm:text-lg">the unread pile, made gentle.</p>
 
+      <p className="mt-6 text-sm text-muted max-w-md mx-auto mb-8">
+        tsundoku is a personal project run for friends and family. your data lives on cloudflare's free tier and is never sold or shared. delete your account any time from settings.
+      </p>
+
       {/* Legal agreement — tiny, above the sign-in widget. */}
       <p className="mt-10 text-xs text-muted max-w-xs">
         by signing in, you agree to our{' '}

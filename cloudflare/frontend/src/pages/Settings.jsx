@@ -61,6 +61,7 @@ export default function Settings() {
   const [uiStyle, setLocalUiStyle] = useState(currentUiStyle());
   const [refreshState, setRefreshState] = useState('idle');  // idle | loading | done | error
   const [showDelete, setShowDelete] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Browser-extension pairings (shared by the X card + the dedicated section).
   const [pairings, setPairings] = useState([]);
@@ -105,6 +106,29 @@ export default function Settings() {
       setPushError(e.message || 'Failed.');
     } finally {
       setPushBusy(false);
+    }
+  };
+
+  // Download a full JSON export of the user's data. request() handles auth, so
+  // we just turn the returned object into a Blob and trigger a download.
+  const downloadExport = async () => {
+    setExporting(true);
+    try {
+      const data = await api.exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tsundoku-export-${ymd}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast('export failed. try again?', { kind: 'error' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -237,11 +261,12 @@ export default function Settings() {
         </div>
         <Row
           label="Theme"
-          desc="Light or dark — each interface style has its own matching palette."
+          desc="Light, dark, or auto — auto follows your system. Each interface style has its own matching palette."
           right={
             <div className="flex border border-line">
               <SegBtn active={theme === 'light'} onClick={() => changeTheme('light')}>Light</SegBtn>
               <SegBtn active={theme === 'dark'}  onClick={() => changeTheme('dark')}>Dark</SegBtn>
+              <SegBtn active={theme === 'auto'}  onClick={() => changeTheme('auto')}>Auto</SegBtn>
             </div>
           }
         />
@@ -300,6 +325,20 @@ export default function Settings() {
               className="text-xs tt-label tracking-eyebrow font-bold px-3 py-1.5 border border-ink text-ink hover:bg-ink hover:text-bg transition-colors"
             >
               Log out
+            </button>
+          }
+          bordered
+        />
+        <Row
+          label="export your data"
+          desc="download everything as json — posts, highlights, bookmarks, sources, domains. credentials excluded."
+          right={
+            <button
+              onClick={downloadExport}
+              disabled={exporting}
+              className="text-sm text-wood font-bold hover:underline disabled:opacity-50"
+            >
+              {exporting ? '…' : 'download json'}
             </button>
           }
           bordered

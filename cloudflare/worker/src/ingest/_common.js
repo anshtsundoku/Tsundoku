@@ -61,3 +61,39 @@ export async function upsertPost(env, post) {
 
   return inserted;
 }
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Record the outcome of a per-source fetch into the health columns.
+//   hadNew=true  → 'ok'   (recent fetch with content)
+//   hadNew=false → keep current status but bump last_status_at; if the source
+//                  has gone 7d+ without new content, downgrade to 'idle'.
+export async function markSourceStatus(env, sourceId, hadNew) {
+  if (hadNew) {
+    await run(env,
+      `UPDATE sources SET last_status='ok', last_status_at=datetime('now') WHERE id = ?`,
+      [sourceId]);
+    return;
+  }
+  const row = await first(env, `SELECT last_status_at FROM sources WHERE id = ?`, [sourceId]);
+  const lastMs = row?.last_status_at
+    ? new Date(String(row.last_status_at).replace(' ', 'T') + 'Z').getTime()
+    : 0;
+  const stale = !lastMs || (Date.now() - lastMs) >= SEVEN_DAYS_MS;
+  if (stale) {
+    await run(env,
+      `UPDATE sources SET last_status='idle', last_status_at=datetime('now') WHERE id = ?`,
+      [sourceId]);
+  } else {
+    await run(env,
+      `UPDATE sources SET last_status_at=datetime('now') WHERE id = ?`,
+      [sourceId]);
+  }
+}
+
+// Record a failed fetch.
+export async function markSourceError(env, sourceId) {
+  await run(env,
+    `UPDATE sources SET last_status='error', last_status_at=datetime('now') WHERE id = ?`,
+    [sourceId]);
+}

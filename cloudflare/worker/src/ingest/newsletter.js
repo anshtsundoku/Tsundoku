@@ -11,7 +11,7 @@ import { all, first, run } from '../lib/db.js';
 import { summarize } from '../services/summarizer.js';
 import { stripHtml } from '../lib/textClean.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
-import { upsertPost } from './_common.js';
+import { upsertPost, markSourceStatus } from './_common.js';
 import { decryptOrNull } from '../lib/userCreds.js';
 
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -107,10 +107,11 @@ function extractEmail(fromHeader) {
 async function matchSources(env, msg, fromAddr, labelMap) {
   const matched = [];
 
-  // Newsletter (sender match).
+  // Newsletter (sender match). Skip paused sources.
   const newsletterByAddr = await first(env,
     `SELECT * FROM sources
-       WHERE type='newsletter' AND active=1 AND LOWER(identifier)=?`,
+       WHERE type='newsletter' AND active=1 AND LOWER(identifier)=?
+         AND (paused_until IS NULL OR paused_until <= datetime('now'))`,
     [fromAddr]
   );
   if (newsletterByAddr) matched.push(newsletterByAddr);
@@ -119,7 +120,8 @@ async function matchSources(env, msg, fromAddr, labelMap) {
     if (domain) {
       const byDomain = await first(env,
         `SELECT * FROM sources
-           WHERE type='newsletter' AND active=1 AND LOWER(identifier)=?`,
+           WHERE type='newsletter' AND active=1 AND LOWER(identifier)=?
+             AND (paused_until IS NULL OR paused_until <= datetime('now'))`,
         [domain]
       );
       if (byDomain) matched.push(byDomain);
@@ -129,7 +131,8 @@ async function matchSources(env, msg, fromAddr, labelMap) {
   // Gmail-label match.
   const msgLabelIds = new Set(msg.labelIds || []);
   const gmailSources = await all(env,
-    `SELECT * FROM sources WHERE type='gmail' AND active=1`
+    `SELECT * FROM sources WHERE type='gmail' AND active=1
+        AND (paused_until IS NULL OR paused_until <= datetime('now'))`
   );
   for (const s of gmailSources) {
     const labelId = labelMap.get(s.identifier.toLowerCase());
@@ -187,6 +190,8 @@ async function runNewslettersOAuth(env) {
 
   const ids = await listMessageIds(token, sinceEpoch);
   console.log(`[gmail] ${ids.length} candidate messages`);
+  // Track which sources received new posts so we can set their health status.
+  const insertedSourceIds = new Set();
   for (const id of ids) {
     try {
       const msg = await fetchMessage(token, id);
@@ -217,7 +222,7 @@ async function runNewslettersOAuth(env) {
       // The same message can match more than one source (e.g. a label AND
       // a sender). Insert once per matching source so it shows up in each.
       for (const source of sources) {
-        await upsertPost(env, {
+        const post = await upsertPost(env, {
           source_id:   source.id,
           external_id: msg.id,
           title:       subject || null,
@@ -229,6 +234,7 @@ async function runNewslettersOAuth(env) {
           read_time_min,
           published_at: dateHeader ? new Date(dateHeader).toISOString() : null,
         });
+        if (post) insertedSourceIds.add(source.id);
       }
     } catch (e) {
       console.warn('[gmail] msg failed', id, e.message);
@@ -237,4 +243,31 @@ async function runNewslettersOAuth(env) {
 
   // Bump all newsletter + gmail sources' poll timestamp.
   await run(env, `UPDATE sources SET last_polled_at = datetime('now') WHERE type IN ('newsletter','gmail')`);
+
+  // Record per-source health: sources that got new mail are 'ok', the rest
+  // age toward 'idle'.
+  const ngSources = await all(env,
+    `SELECT id FROM sources WHERE type IN ('newsletter','gmail') AND active = 1`);
+  for (const src of ngSources) {
+    await markSourceStatus(env, src.id, insertedSourceIds.has(src.id));
+  }
+}
+
+// Manual single-source ingest (POST /api/sources/:id/ingest-now). Per-user
+// newsletter ingestion isn't built yet; the legacy OAuth path is global, so we
+// run it when enabled and otherwise just clear the 'pending' state so the UI
+// stops spinning.
+export async function ingestNewsletterSourceNow(env, s) {
+  try {
+    await runNewsletters(env);
+  } catch (e) {
+    console.warn('[gmail] manual ingest failed', e.message);
+  }
+  const row = await first(env, `SELECT last_status FROM sources WHERE id = ?`, [s.id]);
+  if (!row || row.last_status === 'pending') {
+    await run(env,
+      `UPDATE sources SET last_status='idle', last_status_at=datetime('now') WHERE id = ?`,
+      [s.id]);
+  }
+  return 0;
 }
