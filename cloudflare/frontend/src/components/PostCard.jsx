@@ -1,6 +1,13 @@
+import { Mail } from 'lucide-react';
 import { BookmarkIcon, CheckIcon, XIcon, WeekendIcon } from './Icons.jsx';
 import { typeLabel } from '../lib/labels.js';
 import { useSwipeable } from '../lib/swipe.js';
+
+// Gmail sources read as "Email" in the feed (with a Mail glyph). Other types
+// fall through to the shared typeLabel map.
+function sourceLabel(type) {
+  return type === 'gmail' ? 'Email' : typeLabel(type);
+}
 
 function timeAgo(iso) {
   if (!iso) return '';
@@ -68,8 +75,9 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
         className="card group bg-elev border border-border p-4 hover:border-ink transition-colors cursor-pointer select-none"
       >
         <div className="flex items-center gap-2 text-xs text-muted mb-2.5 tt-label tracking-eyebrow min-w-0">
-          <span className="font-bold text-wood shrink-0">
-            {typeLabel(post.source_type)}
+          <span className="font-bold text-wood shrink-0 inline-flex items-center gap-1">
+            {post.source_type === 'gmail' && <Mail className="w-3 h-3" />}
+            {sourceLabel(post.source_type)}
           </span>
           <span className="sep shrink-0" />
           <span className="truncate font-medium text-ink">{post.source_name || post.author}</span>

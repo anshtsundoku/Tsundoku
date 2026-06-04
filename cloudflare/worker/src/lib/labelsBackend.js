@@ -9,7 +9,7 @@ const LABEL = {
   youtube:    'YT',
   newsletter: 'Newsletter',
   podcast:    'Podcast',
-  gmail:      'Gmail',
+  gmail:      'Email',
 };
 
 export function typeShort(type) {

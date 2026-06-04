@@ -27,6 +27,7 @@
     "migrate:0016":   "wrangler d1 execute tsundoku --remote --file=migrations/0016_extension_pairings.sql",
     "migrate:0017":   "wrangler d1 execute tsundoku --remote --file=migrations/0017_source_status.sql",
     "migrate:0018":   "wrangler d1 execute tsundoku --remote --file=migrations/0018_source_pause.sql",
+    "migrate:0019":   "wrangler d1 execute tsundoku --remote --file=migrations/0019_gmail_oauth.sql",
     "backup:remote":  "wrangler d1 export tsundoku --remote --output=backups/tsundoku-$(date +%Y%m%d-%H%M%S).sql"
   },
   "devDependencies": {

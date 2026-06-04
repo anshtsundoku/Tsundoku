@@ -116,6 +116,10 @@ export const api = {
   patchCredential:  (kind, value) => request('/credentials', { method: 'PATCH', body: JSON.stringify({ kind, value }) }),
   deleteCredential: (kind) => request(`/credentials/${kind}`, { method: 'DELETE' }),
 
+  // Gmail OAuth. gmailStart returns { url } to redirect the browser to Google.
+  gmailStart:      () => request('/auth/gmail/start'),
+  gmailDisconnect: () => request('/auth/gmail/disconnect', { method: 'POST' }),
+
   // Browser-extension pairings. pairExtension returns the plaintext token ONCE.
   pairExtension: ({ name } = {}) => request('/extension/pair', { method: 'POST', body: JSON.stringify({ name }) }),
   listPairings:  () => request('/extension/pairings'),

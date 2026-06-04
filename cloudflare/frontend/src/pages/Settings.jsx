@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Youtube, Mail, Twitter, Sparkles } from 'lucide-react';
+import { Youtube, Mail, Twitter, Sparkles, CheckCircle2 } from 'lucide-react';
 import { api, clearToken } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { useUser } from '../App.jsx';
@@ -12,6 +12,7 @@ import GuideToggle from '../components/setup-guides/GuideToggle.jsx';
 import YoutubeGuide from '../components/setup-guides/YoutubeGuide.jsx';
 import GeminiGuide from '../components/setup-guides/GeminiGuide.jsx';
 import XGuide from '../components/setup-guides/XGuide.jsx';
+import GmailGuide from '../components/setup-guides/GmailGuide.jsx';
 
 // Which inline guide each credential card exposes via "how do I get this?".
 const GUIDES = { yt: YoutubeGuide, gemini: GeminiGuide, twitter: XGuide };
@@ -44,9 +45,6 @@ const CREDENTIAL_CARDS = [
   { kind: 'yt', title: 'YouTube', Icon: Youtube,
     subtitle: 'watch the channels you actually want, ingested every 15 min.',
     placeholder: 'Paste your API key' },
-  { kind: 'gmail', title: 'Gmail', Icon: Mail,
-    disabled: true,
-    body: "newsletters belong in tsundoku, not your inbox. we're working on the cleanest way to connect gmail — for now, this lives on hold." },
   { kind: 'twitter', title: 'X (Twitter)', Icon: Twitter,
     subtitle: 'follow the accounts that matter, without the doomscroll.',
     twitter: true },
@@ -73,6 +71,23 @@ export default function Settings() {
     await loadPairings();
   };
   useEffect(() => { loadPairings(); }, []);
+
+  // Gmail OAuth bounce-back: Google → /api/auth/gmail/callback → here with a
+  // status param. Toast it once, then strip the param so a reload stays quiet.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('gmail_connected')) {
+      toast('gmail connected.');
+    } else if (params.has('gmail_error')) {
+      toast("couldn't connect gmail. try again?", { kind: 'error' });
+    } else {
+      return;
+    }
+    params.delete('gmail_connected');
+    params.delete('gmail_error');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+  }, []);
 
   const doLogout = async () => { await logout(); window.location.reload(); };
 
@@ -495,6 +510,7 @@ function ConnectSources({ pairings, onRevokePairing }) {
 
   return (
     <Section title="Connect sources">
+      <GmailConnector />
       {pending.length > 0 && (
         <>
           <h3 className="eyebrow text-muted text-[10px] pt-3 pb-2 border-b border-border">Pending</h3>
@@ -536,6 +552,83 @@ function ConnectSources({ pairings, onRevokePairing }) {
         </>
       )}
     </Section>
+  );
+}
+
+// Gmail OAuth connector. Unlike the credential-vault cards, state lives on the
+// signed-in user (gmail_email from /auth/me), not the credentials endpoint.
+function GmailConnector() {
+  const user = useUser();
+  const connected = Boolean(user?.gmail_email);
+  const [busy, setBusy] = useState(false);
+
+  const connect = async () => {
+    setBusy(true);
+    try {
+      const res = await api.gmailStart();
+      if (!res?.url) throw new Error('no url');
+      window.location.href = res.url;   // hand off to Google's consent screen
+    } catch (e) {
+      toast("couldn't start gmail connect. try again?", { kind: 'error' });
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await api.gmailDisconnect();
+      toast('gmail disconnected.');
+      window.location.reload();   // re-fetch /auth/me so the card resets
+    } catch (e) {
+      toast("couldn't disconnect. try again?", { kind: 'error' });
+      setBusy(false);
+    }
+  };
+
+  if (connected) {
+    return (
+      <div className="py-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <span className="text-green-600 shrink-0"><CheckCircle2 className="w-5 h-5" /></span>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold tracking-tight">Gmail</div>
+            <div className="text-xs text-muted leading-snug truncate">connected as {user.gmail_email}.</div>
+          </div>
+          <button
+            type="button"
+            onClick={disconnect}
+            disabled={busy}
+            className="text-xs text-muted hover:text-wood underline disabled:opacity-50 shrink-0"
+          >
+            {busy ? '…' : 'disconnect'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-4 border-b border-border">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-wood shrink-0"><Mail className="w-5 h-5" /></span>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold tracking-tight">Gmail</div>
+          <div className="text-xs text-muted leading-snug">pull newsletters and emails from specific senders into your feed.</div>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={connect}
+          disabled={busy}
+          className="block w-full text-center bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
+        >
+          {busy ? '…' : 'connect gmail →'}
+        </button>
+        <GuideToggle label="how does this work?"><GmailGuide /></GuideToggle>
+      </div>
+    </div>
   );
 }
 

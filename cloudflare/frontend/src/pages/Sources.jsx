@@ -4,6 +4,7 @@ import { PauseCircle, PlayCircle } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { typeLabel } from '../lib/labels.js';
+import { useUser } from '../App.jsx';
 import { PlusIcon, TrashIcon, BellIcon, BellOffIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
 import { getPushStatus, subscribeToPush } from '../lib/push.js';
@@ -67,17 +68,20 @@ function isNotifyOn(s) {
 }
 
 // User-facing source types with v1.3 labels. Backend values are unchanged.
-// (Gmail label removed from the picker — existing 'gmail' sources still work,
-// they just can't be created from this UI.)
+// 'gmail' (Gmail sender) is only selectable once the user has connected Gmail
+// in settings — existing 'gmail' sources keep working regardless.
 const TYPES = [
-  { value: 'website',    label: 'Blog',       hint: 'Paste the homepage URL (e.g. https://stratechery.com). We’ll auto-find its RSS feed.' },
-  { value: 'twitter',    label: 'X',          hint: 'Handle only, no @ (e.g. FabrizioRomano)' },
-  { value: 'youtube',    label: 'YT',         hint: 'Channel @handle (e.g. @YannicKilcher) or channel ID starting with UC…' },
-  { value: 'newsletter', label: 'Newsletter', hint: 'The sender’s email address (e.g. newsletter@stratechery.com)' },
-  { value: 'podcast',    label: 'Podcast',    hint: 'Paste the podcast RSS feed URL. Most non-Spotify-exclusive shows have one.' },
+  { value: 'website',    label: 'Blog',         hint: 'Paste the homepage URL (e.g. https://stratechery.com). We’ll auto-find its RSS feed.' },
+  { value: 'twitter',    label: 'X',            hint: 'Handle only, no @ (e.g. FabrizioRomano)' },
+  { value: 'youtube',    label: 'YT',           hint: 'Channel @handle (e.g. @YannicKilcher) or channel ID starting with UC…' },
+  { value: 'newsletter', label: 'Newsletter',   hint: 'The sender’s email address (e.g. newsletter@stratechery.com)' },
+  { value: 'podcast',    label: 'Podcast',      hint: 'Paste the podcast RSS feed URL. Most non-Spotify-exclusive shows have one.' },
+  { value: 'gmail',      label: 'Gmail sender', hint: 'The sender’s email address (e.g. newsletter@stratechery.com)' },
 ];
 
 export default function Sources() {
+  const user = useUser();
+  const gmailConnected = Boolean(user?.gmail_email);
   const [domains, setDomains] = useState([]);
   const [sources, setSources] = useState([]);
   const [form, setForm] = useState({ type: 'website', identifier: '', display_name: '', domain_slug: '' });
@@ -144,7 +148,12 @@ export default function Sources() {
     setSaving(true);
     setNotice(null);
     try {
-      const result = await api.createSource(form);
+      // Gmail sources default their display name to the local-part of the
+      // sender address (e.g. "newsletter" from newsletter@stratechery.com).
+      const payload = (form.type === 'gmail' && !form.display_name.trim())
+        ? { ...form, display_name: form.identifier.split('@')[0] }
+        : form;
+      const result = await api.createSource(payload);
       if (result?.discovery_warning) {
         setNotice({ kind: 'warn', text: result.discovery_warning });
       } else if (form.type === 'website' && result?.feed_url) {
@@ -321,8 +330,21 @@ export default function Sources() {
               value={form.type}
               onChange={e => setForm({ ...form, type: e.target.value })}
             >
-              {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {TYPES.map(t => (
+                <option
+                  key={t.value}
+                  value={t.value}
+                  disabled={t.value === 'gmail' && !gmailConnected}
+                >
+                  {t.label}
+                </option>
+              ))}
             </select>
+            {!gmailConnected && (
+              <div className="text-xs text-muted mt-1">
+                <Link to="/settings" className="text-wood hover:underline">connect gmail first in settings →</Link>
+              </div>
+            )}
           </label>
           <label className="text-sm">
             <div className="text-muted text-xs uppercase tracking-wider mb-1">Domain <span className="text-wood">*</span></div>
@@ -341,7 +363,7 @@ export default function Sources() {
             </select>
           </label>
           <label className="text-sm sm:col-span-2">
-            <div className="text-muted text-xs uppercase tracking-wider mb-1">Identifier</div>
+            <div className="text-muted text-xs uppercase tracking-wider mb-1">{form.type === 'gmail' ? 'sender email' : 'Identifier'}</div>
             <input
               className="w-full bg-bg border border-border rounded-md px-3 py-2 text-ink"
               placeholder={hint}

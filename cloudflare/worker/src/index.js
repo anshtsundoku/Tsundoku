@@ -16,6 +16,7 @@ import { triggerIngest, status, regenerateTldrs, geminiTest, pushAudit } from '.
 import { getPrefs, patchPrefs }            from './routes/prefs.js';
 import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './routes/push.js';
 import { googleAuth, logout, me, onboardingComplete, onboardingStep } from './routes/auth.js';
+import { gmailStart, gmailCallback, gmailDisconnect } from './routes/gmail-auth.js';
 import { getCredentials, patchCredential, deleteCredential } from './routes/credentials.js';
 import { deleteAccount, exportData }        from './routes/account.js';
 import { pair as extPair, status as extStatus, twitterCookies as extTwitterCookies,
@@ -25,6 +26,7 @@ import { runRss }         from './ingest/rss.js';
 import { runYoutube }     from './ingest/youtube.js';
 import { runTwitter }     from './ingest/twitter.js';
 import { runNewsletters } from './ingest/newsletter.js';
+import { runGmail }       from './ingest/gmail.js';
 import { runCleanup }     from './ingest/cleanup.js';
 
 const router = new Router()
@@ -35,6 +37,12 @@ const router = new Router()
   .get('/api/auth/me',                   me)
   .post('/api/auth/onboarding-complete', onboardingComplete)
   .patch('/api/auth/onboarding-step',    onboardingStep)
+  // Gmail OAuth (incremental auth, gmail.readonly). The callback is anonymous
+  // (Google redirects the browser, no bearer token); start + disconnect require
+  // a session.
+  .get('/api/auth/gmail/start',          gmailStart)
+  .get('/api/auth/gmail/callback',       gmailCallback)
+  .post('/api/auth/gmail/disconnect',    gmailDisconnect)
   // Account lifecycle
   .delete('/api/account',                deleteAccount)
   .get('/api/account/export',            exportData)
@@ -96,6 +104,9 @@ const ANONYMOUS_ROUTES = new Set([
   'GET /api/health',
   'POST /api/auth/google',
   'POST /api/auth/logout',
+  // Google redirects the browser here after consent; no bearer token is
+  // present. The handler authenticates via the OAuth state token instead.
+  'GET /api/auth/gmail/callback',
   // Extension endpoints that authenticate with a pairing bearer token (not a
   // session). They verify the token themselves in routes/extension.js.
   'GET /api/extension/status',
@@ -130,6 +141,7 @@ export default {
       if (cron === '*/15 * * * *') ctx.waitUntil(runYoutube(env, ctx));
       if (cron === '*/20 * * * *') ctx.waitUntil(runTwitter(env, ctx));
       if (cron === '*/10 * * * *') ctx.waitUntil(runNewsletters(env, ctx));
+      if (cron === '*/10 * * * *') ctx.waitUntil(runGmail(env, ctx));
       if (cron === '0 3 * * *')    ctx.waitUntil(runCleanup(env));
     } catch (e) {
       console.error('[cron] dispatch failed', e);
