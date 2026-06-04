@@ -18,6 +18,8 @@ import { vapidPublicKey, subscribe, unsubscribe, pushStatus, vapidGen } from './
 import { googleAuth, logout, me, onboardingComplete, onboardingStep } from './routes/auth.js';
 import { getCredentials, patchCredential, deleteCredential } from './routes/credentials.js';
 import { deleteAccount }                    from './routes/account.js';
+import { pair as extPair, status as extStatus, twitterCookies as extTwitterCookies,
+         listPairings as extListPairings, deletePairing as extDeletePairing } from './routes/extension.js';
 
 import { runRss }         from './ingest/rss.js';
 import { runYoutube }     from './ingest/youtube.js';
@@ -35,6 +37,13 @@ const router = new Router()
   .patch('/api/auth/onboarding-step',    onboardingStep)
   // Account lifecycle
   .delete('/api/account',                deleteAccount)
+  // Browser extension (x.com cookie sync). status + twitter-cookies use the
+  // pairing bearer token (see ANONYMOUS_ROUTES); the rest use the session.
+  .post('/api/extension/pair',           extPair)
+  .get('/api/extension/status',          extStatus)
+  .post('/api/extension/twitter-cookies', extTwitterCookies)
+  .get('/api/extension/pairings',        extListPairings)
+  .delete('/api/extension/pairings/:id', extDeletePairing)
   // Credential vault (per-user encrypted third-party keys)
   .get('/api/credentials',               getCredentials)
   .patch('/api/credentials',             patchCredential)
@@ -84,6 +93,10 @@ const ANONYMOUS_ROUTES = new Set([
   'GET /api/health',
   'POST /api/auth/google',
   'POST /api/auth/logout',
+  // Extension endpoints that authenticate with a pairing bearer token (not a
+  // session). They verify the token themselves in routes/extension.js.
+  'GET /api/extension/status',
+  'POST /api/extension/twitter-cookies',
 ]);
 
 export default {

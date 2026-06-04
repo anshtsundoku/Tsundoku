@@ -7,6 +7,9 @@ import StepShell from '../components/onboarding/StepShell.jsx';
 import Welcome from '../components/onboarding/steps/Welcome.jsx';
 import CreateDomain from '../components/onboarding/steps/CreateDomain.jsx';
 import ConnectCredential from '../components/onboarding/steps/ConnectCredential.jsx';
+import YoutubeGuide from '../components/setup-guides/YoutubeGuide.jsx';
+import XGuide from '../components/setup-guides/XGuide.jsx';
+import GeminiGuide from '../components/setup-guides/GeminiGuide.jsx';
 import Done from '../components/onboarding/steps/Done.jsx';
 
 // welcome → interstitial×6 between steps → domain → connect×4 → done
@@ -125,6 +128,7 @@ export default function Onboarding() {
         body="paste a youtube api key. tsundoku watches channels you choose and tells you when there's something new."
         kind="yt"
         fields={[{ key: 'value', placeholder: 'youtube api key' }]}
+        guide={<YoutubeGuide />}
       />
     );
   }
@@ -144,6 +148,7 @@ export default function Onboarding() {
           { key: 'auth_token', placeholder: 'auth_token' },
           { key: 'ct0', placeholder: 'ct0' },
         ]}
+        guide={<XGuide />}
       />
     );
   }
@@ -181,6 +186,7 @@ export default function Onboarding() {
         body="optional. lets tsundoku write tldrs for every new post."
         kind="gemini"
         fields={[{ key: 'value', placeholder: 'gemini api key' }]}
+        guide={<GeminiGuide />}
       />
     );
   }

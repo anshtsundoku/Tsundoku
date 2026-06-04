@@ -100,4 +100,9 @@ export const api = {
   getCredentials:   () => request('/credentials'),
   patchCredential:  (kind, value) => request('/credentials', { method: 'PATCH', body: JSON.stringify({ kind, value }) }),
   deleteCredential: (kind) => request(`/credentials/${kind}`, { method: 'DELETE' }),
+
+  // Browser-extension pairings. pairExtension returns the plaintext token ONCE.
+  pairExtension: ({ name } = {}) => request('/extension/pair', { method: 'POST', body: JSON.stringify({ name }) }),
+  listPairings:  () => request('/extension/pairings'),
+  revokePairing: (id) => request(`/extension/pairings/${id}`, { method: 'DELETE' }),
 };

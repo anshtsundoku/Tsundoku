@@ -62,6 +62,10 @@ const PAGES_PREVIEW_RE = /^https:\/\/[a-z0-9-]+\.tsundoku-e0v\.pages\.dev$/;
 
 function isAllowedOrigin(origin, env) {
   if (!origin) return false;
+  // Browser extensions call from chrome-extension:// (Chrome/Edge/Brave/Arc)
+  // and moz-extension:// (Firefox) origins. They authenticate with a pairing
+  // bearer token, never cookies.
+  if (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')) return true;
   const extra = String(env?.CORS_ORIGINS || '')
     .split(',').map(s => s.trim()).filter(Boolean);
   if (DEFAULT_ALLOWED_ORIGINS.includes(origin) || extra.includes(origin)) return true;

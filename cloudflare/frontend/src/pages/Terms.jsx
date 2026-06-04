@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
+import Markdown from '../components/Markdown.jsx';
+import { TERMS_MD } from '../lib/legalContent.js';
 
 export default function Terms() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center text-center gap-4 px-6">
-      <h1 className="text-2xl font-bold tt-title tracking-tight">Terms</h1>
-      <p className="text-muted">coming soon</p>
-      <Link to="/" className="eyebrow text-wood hover:underline">← home</Link>
+    <main className="max-w-2xl mx-auto px-6 py-10">
+      <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← home</Link>
+      <div className="mt-6">
+        <Markdown source={TERMS_MD} />
+      </div>
     </main>
   );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Brand } from '../App.jsx';
+import { Brand, LegalFooter } from '../App.jsx';
 import { signInWithGoogle } from '../lib/auth.js';
 
 // OAuth client ids are public identifiers (not secrets). Prefer the build-time
@@ -68,8 +67,16 @@ export default function Landing() {
       <h1 className="text-4xl sm:text-5xl font-bold tt-title tracking-tight leading-none">Tsundoku</h1>
       <p className="mt-4 text-muted text-base sm:text-lg">the unread pile, made gentle.</p>
 
+      {/* Legal agreement — tiny, above the sign-in widget. */}
+      <p className="mt-10 text-xs text-muted max-w-xs">
+        by signing in, you agree to our{' '}
+        <a href="/terms" target="_blank" rel="noreferrer" className="text-wood underline">terms</a>
+        {' '}and{' '}
+        <a href="/privacy" target="_blank" rel="noreferrer" className="text-wood underline">privacy policy</a>
+      </p>
+
       {/* Google sign-in widget (One Tap + the official button). */}
-      <div ref={btnRef} className="mt-10 min-h-[44px] flex items-center justify-center" />
+      <div ref={btnRef} className="mt-4 min-h-[44px] flex items-center justify-center" />
 
       {error && <p className="mt-6 text-xs text-wood max-w-sm">{error}</p>}
 
@@ -80,11 +87,7 @@ export default function Landing() {
         </p>
       )}
 
-      <footer className="mt-16 text-xs text-muted flex items-center gap-3">
-        <Link to="/privacy" className="hover:text-ink transition-colors">privacy</Link>
-        <span aria-hidden="true">·</span>
-        <Link to="/terms" className="hover:text-ink transition-colors">terms</Link>
-      </footer>
+      <LegalFooter className="mt-16" />
     </main>
   );
 }

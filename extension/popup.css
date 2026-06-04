@@ -1,0 +1,97 @@
+/* Tsundoku popup — warm wood + cream, matching the web app voice.
+   Compact: max 320x400. Carlito font, lowercase headings, no emojis. */
+
+:root {
+  --bg: #f7f1e6;
+  --elev: #fffdf8;
+  --ink: #2a2017;
+  --muted: #8a7d6b;
+  --wood: #8a5a2b;
+  --wood-2: #6f4720;
+  --border: #e4d9c6;
+  --danger: #b3401f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #221a12;
+    --elev: #2c2118;
+    --ink: #f2e8d8;
+    --muted: #a89a85;
+    --wood: #c98a4e;
+    --wood-2: #b3753a;
+    --border: #3a2c1f;
+    --danger: #e0764f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 320px;
+  max-height: 400px;
+  font-family: Carlito, Calibri, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { padding: 16px; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wood);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.mark { width: 22px; height: 22px; }
+.brand-name {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-transform: lowercase;
+}
+
+.status { font-size: 13px; line-height: 1.5; }
+.status h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+.muted { color: var(--muted); margin: 0 0 12px; }
+.danger { color: var(--danger); margin: 0 0 12px; font-weight: 700; }
+.email { color: var(--ink); font-weight: 700; }
+
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+button {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--elev);
+  color: var(--ink);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+button:hover { border-color: var(--ink); }
+button.primary {
+  background: var(--wood);
+  border-color: var(--wood);
+  color: var(--bg);
+}
+button.primary:hover { background: var(--wood-2); border-color: var(--wood-2); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.note { font-size: 11px; color: var(--muted); margin-top: 10px; }

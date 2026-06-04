@@ -1,15 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../../lib/api.js';
 import StepShell from '../StepShell.jsx';
-
-const GUIDE_BLOCK = (
-  <div
-    className="flex items-center justify-center text-center border border-line bg-bg/40 text-muted text-xs px-3 mb-4"
-    style={{ minHeight: 80 }}
-  >
-    Setup guides will come here
-  </div>
-);
+import GuideToggle from '../../setup-guides/GuideToggle.jsx';
 
 export default function ConnectCredential({
   stepNum,
@@ -22,6 +14,7 @@ export default function ConnectCredential({
   kind,
   fields,
   connectLabel = 'connect',
+  guide = null,
 }) {
   const [values, setValues] = useState(() =>
     Object.fromEntries(fields.map(f => [f.key, ''])),
@@ -74,7 +67,7 @@ export default function ConnectCredential({
         </button>
       }
     >
-      {GUIDE_BLOCK}
+      {guide && <GuideToggle>{guide}</GuideToggle>}
       <div className="space-y-2">
         {fields.map(f => (
           <input

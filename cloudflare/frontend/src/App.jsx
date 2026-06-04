@@ -11,6 +11,7 @@ import Landing    from './pages/Landing.jsx';
 import Onboarding from './pages/Onboarding.jsx';
 import Privacy    from './pages/Privacy.jsx';
 import Terms      from './pages/Terms.jsx';
+import ExtensionPair from './pages/ExtensionPair.jsx';
 import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
 import { applyUiStyle, currentUiStyle, syncUiStyleFromServer } from './lib/uiStyle.js';
 import { me } from './lib/auth.js';
@@ -37,6 +38,17 @@ export function Brand({ size = 'md' }) {
       <line x1="11.5" y1="5" x2="11.5" y2="27" />
       <path d="M17.5 5 L17.5 12 L20 9.5 L22.5 12 L22.5 5" />
     </svg>
+  );
+}
+
+// Tiny legal disclosure footer (privacy · terms). Deliberately low-key.
+export function LegalFooter({ className = '' }) {
+  return (
+    <footer className={`text-xs text-muted/70 flex items-center justify-center gap-2 ${className}`}>
+      <Link to="/privacy" className="hover:text-ink transition-colors">privacy</Link>
+      <span aria-hidden="true">·</span>
+      <Link to="/terms" className="hover:text-ink transition-colors">terms</Link>
+    </footer>
   );
 }
 
@@ -99,6 +111,10 @@ export default function App() {
           path="/onboarding"
           element={needsOnboarding ? <Onboarding /> : <Navigate to="/" replace />}
         />
+        {/* Standalone — bypasses onboarding redirect and the app shell. The
+            page self-guards via me(). The browser extension's content script
+            runs on this URL. */}
+        <Route path="/extension-pair" element={<ExtensionPair />} />
         <Route
           path="*"
           element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <AppShell />}
@@ -171,6 +187,7 @@ function AppShell() {
           <Route path="/privacy"           element={<Privacy />} />
           <Route path="/terms"             element={<Terms />} />
         </Routes>
+        <LegalFooter className="mt-12 pt-6" />
       </main>
     </div>
   );

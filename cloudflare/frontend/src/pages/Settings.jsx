@@ -7,6 +7,30 @@ import { logout } from '../lib/auth.js';
 import { currentTheme, setTheme as persistTheme } from '../lib/theme.js';
 import { currentUiStyle, setUiStyle } from '../lib/uiStyle.js';
 import { getPushStatus, subscribeToPush, unsubscribeFromPush } from '../lib/push.js';
+import GuideToggle from '../components/setup-guides/GuideToggle.jsx';
+import YoutubeGuide from '../components/setup-guides/YoutubeGuide.jsx';
+import GeminiGuide from '../components/setup-guides/GeminiGuide.jsx';
+import XGuide from '../components/setup-guides/XGuide.jsx';
+
+// Which inline guide each credential card exposes via "how do I get this?".
+const GUIDES = { yt: YoutubeGuide, gemini: GeminiGuide, twitter: XGuide };
+
+// D1 stores timestamps as "YYYY-MM-DD HH:MM:SS" (UTC, no zone). Render relative.
+function relTime(s) {
+  if (!s) return 'never';
+  const t = new Date(String(s).replace(' ', 'T') + 'Z').getTime();
+  if (!Number.isFinite(t)) return String(s);
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function truncateName(name) {
+  const n = (name || 'browser extension').trim();
+  return n.length > 40 ? `${n.slice(0, 40)}…` : n;
+}
 
 const UI_STYLE_OPTIONS = [
   { key: 'wood',     label: 'Wood' },
@@ -36,6 +60,17 @@ export default function Settings() {
   const [uiStyle, setLocalUiStyle] = useState(currentUiStyle());
   const [refreshState, setRefreshState] = useState('idle');  // idle | loading | done | error
   const [showDelete, setShowDelete] = useState(false);
+
+  // Browser-extension pairings (shared by the X card + the dedicated section).
+  const [pairings, setPairings] = useState([]);
+  const loadPairings = async () => {
+    try { setPairings(await api.listPairings() || []); } catch { setPairings([]); }
+  };
+  const revokePairing = async (id) => {
+    try { await api.revokePairing(id); } catch { /* ignore */ }
+    await loadPairings();
+  };
+  useEffect(() => { loadPairings(); }, []);
 
   const doLogout = async () => { await logout(); window.location.reload(); };
 
@@ -112,7 +147,7 @@ export default function Settings() {
       <Link to="/" className="eyebrow text-muted hover:text-ink transition-colors">← Home</Link>
       <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight tt-title leading-none mb-8 break-words">Settings</h1>
 
-      <ConnectSources />
+      <ConnectSources pairings={pairings} onRevokePairing={revokePairing} />
 
       <Section title="Notifications">
         <Row
@@ -138,6 +173,8 @@ export default function Settings() {
           </p>
         )}
       </Section>
+
+      <BrowserExtensions pairings={pairings} onRevoke={revokePairing} />
 
       <Section title="Appearance">
         <div className="py-4 border-b border-border">
@@ -280,6 +317,9 @@ function DeleteAccountModal({ onClose }) {
         <p className="text-sm text-muted leading-snug mt-2">
           this will permanently delete your domains, sources, posts, bookmarks, push subscriptions, and credentials. there's no undo.
         </p>
+        <p className="text-xs text-muted leading-snug mt-2">
+          see our <a href="/privacy" target="_blank" rel="noreferrer" className="text-wood underline">privacy policy</a> for what 'delete' covers.
+        </p>
         <label className="block text-xs text-muted mt-4 mb-1">
           type <span className="font-bold text-ink">delete</span> to confirm
         </label>
@@ -312,7 +352,46 @@ function DeleteAccountModal({ onClose }) {
   );
 }
 
-function ConnectSources() {
+function BrowserExtensions({ pairings, onRevoke }) {
+  const [busyId, setBusyId] = useState(null);
+
+  const revoke = async (id) => {
+    setBusyId(id);
+    try { await onRevoke(id); } finally { setBusyId(null); }
+  };
+
+  return (
+    <Section title="Browser extensions">
+      {(!pairings || pairings.length === 0) ? (
+        <div className="py-4 text-sm text-muted leading-snug">
+          no browser extensions paired yet. install the tsundoku extension to sync x cookies automatically.{' '}
+          <Link to="/extension-pair" className="text-wood hover:underline whitespace-nowrap">pair now →</Link>
+        </div>
+      ) : (
+        pairings.map((p, i) => (
+          <Row
+            key={p.id}
+            label={truncateName(p.name)}
+            desc={`paired ${relTime(p.created_at)} · last sync ${relTime(p.last_used_at)}`}
+            right={
+              <button
+                type="button"
+                onClick={() => revoke(p.id)}
+                disabled={busyId === p.id}
+                className="text-xs text-muted hover:text-wood underline disabled:opacity-50"
+              >
+                {busyId === p.id ? '…' : 'revoke'}
+              </button>
+            }
+            bordered={i < pairings.length - 1}
+          />
+        ))
+      )}
+    </Section>
+  );
+}
+
+function ConnectSources({ pairings, onRevokePairing }) {
   const [status, setStatus] = useState(null);
   const [editingConnected, setEditingConnected] = useState(null);
 
@@ -340,7 +419,13 @@ function ConnectSources() {
         <>
           <h3 className="eyebrow text-muted text-[10px] pt-3 pb-2 border-b border-border">Pending</h3>
           {pending.map(card => (
-            <PendingCredentialForm key={card.kind} card={card} onSaved={onSaved} />
+            <PendingCredentialForm
+              key={card.kind}
+              card={card}
+              onSaved={onSaved}
+              pairings={card.twitter ? pairings : undefined}
+              onRevokePairing={onRevokePairing}
+            />
           ))}
         </>
       )}
@@ -364,6 +449,8 @@ function ConnectSources() {
               onSaved={onSaved}
               onDisconnect={() => onDisconnected(editingConnected)}
               updateMode
+              pairings={editingConnected === 'twitter' ? pairings : undefined}
+              onRevokePairing={onRevokePairing}
             />
           )}
         </>
@@ -372,12 +459,17 @@ function ConnectSources() {
   );
 }
 
-function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode }) {
+function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode, pairings, onRevokePairing }) {
   const [fields, setFields] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // For X: manual cookie entry is collapsed by default (extension is preferred),
+  // but expanded when editing an already-connected credential.
+  const [showManual, setShowManual] = useState(Boolean(updateMode));
   if (!card) return null;
   const Icon = card.Icon;
+  const GuideComp = GUIDES[card.kind];
+  const guideEl = GuideComp ? <GuideToggle><GuideComp /></GuideToggle> : null;
 
   // Soft-disabled cards (e.g. Gmail): explanatory copy only, no input/save.
   if (card.disabled) {
@@ -447,40 +539,74 @@ function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode }) {
         </div>
       </div>
       <div className="space-y-3">
-        <div
-          className="flex items-center justify-center text-center border border-line bg-bg/40 text-muted text-xs px-3"
-          style={{ minHeight: 80 }}
-        >
-          Setup guides will come here
-        </div>
         {card.twitter ? (
-          <div className="space-y-2">
-            <input
-              type="password" autoComplete="off" placeholder="auth_token"
-              value={fields.auth_token || ''}
-              onChange={e => setFields(f => ({ ...f, auth_token: e.target.value }))}
-              className="w-full bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
-            />
+          <>
+            <Link
+              to="/extension-pair"
+              className="block w-full text-center bg-wood text-bg font-bold tt-label tracking-eyebrow text-xs px-4 py-2.5 hover:bg-wood-2 transition-colors"
+            >
+              connect with browser extension (recommended)
+            </Link>
+            <p className="text-xs text-muted leading-snug">
+              the tsundoku extension keeps your x cookies fresh automatically — no devtools, no expiry surprises.
+            </p>
+            {pairings?.length > 0 && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 border border-wood bg-wood/10 text-ink px-2 py-1">
+                  connected via {truncateName(pairings[0].name)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRevokePairing?.(pairings[0].id)}
+                  className="text-muted hover:text-wood underline"
+                >
+                  disconnect
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowManual(m => !m)}
+              className="text-wood text-xs hover:underline"
+            >
+              {showManual ? 'hide manual entry' : 'or paste cookies manually'}
+            </button>
+            {showManual && (
+              <>
+                {guideEl}
+                <div className="space-y-2">
+                  <input
+                    type="password" autoComplete="off" placeholder="auth_token"
+                    value={fields.auth_token || ''}
+                    onChange={e => setFields(f => ({ ...f, auth_token: e.target.value }))}
+                    className="w-full bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="password" autoComplete="off" placeholder="ct0"
+                      value={fields.ct0 || ''}
+                      onChange={e => setFields(f => ({ ...f, ct0: e.target.value }))}
+                      className="flex-1 min-w-0 bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
+                    />
+                    {SaveBtn}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            {guideEl}
             <div className="flex gap-2">
               <input
-                type="password" autoComplete="off" placeholder="ct0"
-                value={fields.ct0 || ''}
-                onChange={e => setFields(f => ({ ...f, ct0: e.target.value }))}
+                type="password" autoComplete="off" placeholder={card.placeholder}
+                value={fields.value || ''}
+                onChange={e => setFields(f => ({ ...f, value: e.target.value }))}
                 className="flex-1 min-w-0 bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
               />
               {SaveBtn}
             </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <input
-              type="password" autoComplete="off" placeholder={card.placeholder}
-              value={fields.value || ''}
-              onChange={e => setFields(f => ({ ...f, value: e.target.value }))}
-              className="flex-1 min-w-0 bg-bg border border-border px-3 py-2 text-ink text-sm font-mono"
-            />
-            {SaveBtn}
-          </div>
+          </>
         )}
         {error && <div className="text-xs text-wood">{error}</div>}
         {updateMode && onDisconnect && (
