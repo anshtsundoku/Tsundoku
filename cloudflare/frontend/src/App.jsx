@@ -16,6 +16,8 @@ import { applyTheme, currentTheme, syncThemeFromServer } from './lib/theme.js';
 import { applyUiStyle, currentUiStyle, syncUiStyleFromServer } from './lib/uiStyle.js';
 import { me } from './lib/auth.js';
 import { GearIcon, HomeIcon, SearchIcon, LibraryIcon } from './components/Icons.jsx';
+import UpdateToast from './components/UpdateToast.jsx';
+import ToastHost from './components/ToastHost.jsx';
 
 // Signed-in user + setter (onboarding completion updates without full reload).
 const UserContext = createContext(null);
@@ -61,6 +63,18 @@ function FullScreenSpinner() {
 }
 
 export default function App() {
+  // Toasts + the update pill live above everything and outside Routes so they
+  // show on every screen (landing, onboarding, app shell) and survive nav.
+  return (
+    <>
+      <AppRoutes />
+      <UpdateToast />
+      <ToastHost />
+    </>
+  );
+}
+
+function AppRoutes() {
   const [authState, setAuthState] = useState('loading');  // loading | authed | anon
   const [user, setUser] = useState(null);
 

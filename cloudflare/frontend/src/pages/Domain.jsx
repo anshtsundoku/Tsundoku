@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { toast } from '../lib/toast.js';
 import { usePoll } from '../lib/poll.js';
 import PostCard from '../components/PostCard.jsx';
 import PostDetail from '../components/PostDetail.jsx';
@@ -58,11 +59,13 @@ export default function Domain() {
     const next = !post.is_bookmarked;
     updateLocal(post.id, { is_bookmarked: next });
     await api.patchPost(post.id, { is_bookmarked: next });
+    toast(next ? 'saved for later.' : 'removed from saved.');
   };
   const onToggleWeekend = async (post) => {
     const next = !post.is_weekend;
     updateLocal(post.id, { is_weekend: next });
     await api.patchPost(post.id, { is_weekend: next });
+    if (next) toast('saved for the weekend.');
   };
   const onDismiss = async (post) => {
     setPosts(prev => prev.filter(p => p.id !== post.id));

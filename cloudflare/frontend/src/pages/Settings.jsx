@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Youtube, Mail, Twitter, Sparkles } from 'lucide-react';
 import { api, clearToken } from '../lib/api.js';
+import { toast } from '../lib/toast.js';
 import { useUser } from '../App.jsx';
 import { logout } from '../lib/auth.js';
 import { currentTheme, setTheme as persistTheme } from '../lib/theme.js';
@@ -277,6 +278,7 @@ export default function Settings() {
             <strong className="text-ink">Tsundoku</strong> — Japanese for the act of acquiring books and letting them pile up unread.
           </p>
           <p>A quiet feed of the few sources you trust. Read deliberately.</p>
+          <p className="text-muted text-xs mt-3">version {import.meta.env.VITE_APP_VERSION}</p>
         </div>
       </Section>
 
@@ -537,6 +539,7 @@ function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode, pairin
       await api.patchCredential(card.kind, value);
       setFields({});           // never keep the secret around
       onSaved(card.kind);
+      toast('saved.');
     } catch (e) {
       setError(e.message || 'could not save');
     } finally {
@@ -550,6 +553,7 @@ function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode, pairin
       await api.deleteCredential(card.kind);
       setFields({});
       onDisconnect?.();
+      toast('disconnected.');
     } catch (e) {
       setError(e.message || 'could not disconnect');
     } finally {
@@ -676,6 +680,7 @@ function ConnectedChip({ card, active, onSelect, onDisconnected }) {
     try {
       await api.deleteCredential(card.kind);
       onDisconnected();
+      toast('disconnected.');
     } catch { /* ignore */ }
     finally { setBusy(false); }
   };

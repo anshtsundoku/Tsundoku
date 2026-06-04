@@ -5,8 +5,18 @@
 // push + notificationclick handlers on top.
 
 import { precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { NetworkFirst } from 'workbox-strategies';
 
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// HTML/navigation requests go network-first so a deploy is picked up promptly
+// (the shell can't get stuck on a stale cached index.html). Falls back to cache
+// if the network is slow or offline.
+registerRoute(
+  ({ request }) => request.mode === 'navigate',
+  new NetworkFirst({ cacheName: 'tsundoku-html', networkTimeoutSeconds: 3 }),
+);
 
 // Take over as soon as a new SW is installed so push handlers update without
 // waiting for every tab to close. (injectManifest doesn't add these for us.)

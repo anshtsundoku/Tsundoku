@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { toast } from '../lib/toast.js';
 import { typeLabel } from '../lib/labels.js';
 import { PlusIcon, TrashIcon, BellIcon, BellOffIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
@@ -114,6 +115,7 @@ export default function Sources() {
       }
       setForm({ type: form.type, identifier: '', display_name: '', domain_slug: form.domain_slug });
       await load();
+      toast('source added.');
       maybePushNudge();
     } catch (err) {
       setNotice({ kind: 'warn', text: err.message });
@@ -160,6 +162,7 @@ export default function Sources() {
     if (!confirm('Remove this source?')) return;
     await api.deleteSource(id);
     setSources(prev => prev.filter(s => s.id !== id));
+    toast('removed.');
   };
 
   const toggleNotify = async (s) => {

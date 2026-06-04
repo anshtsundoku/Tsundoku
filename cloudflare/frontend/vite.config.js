@@ -5,10 +5,19 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Cloudflare Pages build.
 
 export default defineConfig({
+  // Build timestamp surfaced in Settings → About (and useful for support).
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(new Date().toISOString().slice(0, 19) + 'Z'),
+  },
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' so a new deploy surfaces the update toast instead of silently
+      // reloading; main.jsx wires onNeedRefresh → window event → UpdateToast.
+      registerType: 'prompt',
+      // We register the SW ourselves in main.jsx (registerSW from
+      // virtual:pwa-register) — don't let the plugin inject a second one.
+      injectRegister: null,
       // injectManifest lets us own the service worker source. We add web
       // push + notificationclick handlers on top of Workbox precaching.
       strategies: 'injectManifest',

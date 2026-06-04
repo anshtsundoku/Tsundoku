@@ -22,15 +22,25 @@ export function clearToken() { setToken(null); }
 
 async function request(path, opts = {}) {
   const token = getToken();
-  const res = await fetch(`${BASE}${path}`, {
-    ...opts,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts.headers || {}),
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...opts,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(opts.headers || {}),
+      },
+    });
+  } catch (e) {
+    // No HTTP response at all (offline, DNS, connection refused). Surface a
+    // single calm toast; callers still get the thrown error to handle locally.
+    if (typeof window !== 'undefined') {
+      window.toast?.('couldn\'t reach tsundoku. try again?', { kind: 'error' });
+    }
+    throw e;
+  }
   if (res.status === 401) {
     // A 401 while we held a token means the session expired mid-use: drop the
     // stale token and reload so App re-mounts on the Landing page. When there's

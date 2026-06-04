@@ -228,3 +228,8 @@ mark.mindful-highlight {
 .push-banner-fade-in {
   animation: onboarding-fade 200ms ease-out;
 }
+
+/* Toasts (ephemeral feedback + update pill) — gentle 200ms fade in. */
+.toast-fade-in {
+  animation: onboarding-fade 200ms ease-out;
+}

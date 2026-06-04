@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { toast } from '../lib/toast.js';
 import { usePoll } from '../lib/poll.js';
 import { typeLabel } from '../lib/labels.js';
 import PostCard from '../components/PostCard.jsx';
@@ -37,8 +38,8 @@ export default function TypeFeed() {
   const updateLocal = (id, patch) =>
     setPosts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
   const onMarkRead = async (p) => { updateLocal(p.id, { is_read: true }); await api.patchPost(p.id, { is_read: true }); };
-  const onToggleBookmark = async (p) => { const n = !p.is_bookmarked; updateLocal(p.id, { is_bookmarked: n }); await api.patchPost(p.id, { is_bookmarked: n }); };
-  const onToggleWeekend  = async (p) => { const n = !p.is_weekend; updateLocal(p.id, { is_weekend: n }); await api.patchPost(p.id, { is_weekend: n }); };
+  const onToggleBookmark = async (p) => { const n = !p.is_bookmarked; updateLocal(p.id, { is_bookmarked: n }); await api.patchPost(p.id, { is_bookmarked: n }); toast(n ? 'saved for later.' : 'removed from saved.'); };
+  const onToggleWeekend  = async (p) => { const n = !p.is_weekend; updateLocal(p.id, { is_weekend: n }); await api.patchPost(p.id, { is_weekend: n }); if (n) toast('saved for the weekend.'); };
   const onDismiss = async (p) => { setPosts(prev => prev.filter(x => x.id !== p.id)); try { await api.dismissPost(p.id); } catch { load(); } };
 
   if (postId) {
