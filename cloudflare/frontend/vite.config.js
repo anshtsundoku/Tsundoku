@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { extensionZip } from './vite-plugin-extension-zip.js';
 
 // Cloudflare Pages build.
 
@@ -11,6 +12,9 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // Emit the extension download (tsundoku-extension.zip) + version json into
+    // the build output. Pure JS so it works on any build host (no `zip` binary).
+    extensionZip(),
     VitePWA({
       // 'prompt' so a new deploy surfaces the update toast instead of silently
       // reloading; main.jsx wires onNeedRefresh → window event → UpdateToast.

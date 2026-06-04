@@ -19,7 +19,7 @@ echo "building frontend..."
 # Sanity-check the bundled extension zip before we push. Pages serves whatever
 # the build produced; a corrupt/missing zip here means a corrupt download live.
 echo "verifying extension zip..."
-ZIP_PATH="cloudflare/frontend/public/tsundoku-extension.zip"
+ZIP_PATH="cloudflare/frontend/dist/tsundoku-extension.zip"
 if [ ! -f "$ZIP_PATH" ]; then echo "ERROR: extension zip not built"; exit 1; fi
 if ! unzip -tq "$ZIP_PATH" >/dev/null 2>&1; then echo "ERROR: extension zip is corrupted"; exit 1; fi
 SIZE=$(stat -f%z "$ZIP_PATH" 2>/dev/null || stat -c%s "$ZIP_PATH")
