@@ -67,7 +67,7 @@ export function useSwipeable({ onSwipeRight, onSwipeLeft, onLongPress, onTap } =
         if (e.cancelable) e.preventDefault();
       }
     },
-    onTouchEnd: () => {
+    onTouchEnd: (e) => {
       const finalDx = dx;
       const wasMoved = ref.current.moved;
       const wasLocked = ref.current.locked;
@@ -75,6 +75,9 @@ export function useSwipeable({ onSwipeRight, onSwipeLeft, onLongPress, onTap } =
       ref.current.touchActive = false;
 
       if (wasLocked === 'x' && Math.abs(finalDx) > SWIPE_THRESHOLD) {
+        // Suppress the synthesized click so a horizontal swipe never also
+        // triggers the card's onClick (open) handler.
+        if (e?.cancelable) e.preventDefault();
         vibrate(12);
         // Animate card off-screen in direction of swipe
         setAnimating(true);
@@ -86,8 +89,13 @@ export function useSwipeable({ onSwipeRight, onSwipeLeft, onLongPress, onTap } =
         }, 160);
         return;
       }
-      // Tap (no significant movement, no long-press fired)
-      if (!wasMoved && onTap) onTap();
+      // Tap (no significant movement, no long-press fired). We fire onTap here
+      // and prevent the ghost click so the card's onClick (the desktop/mouse
+      // open path) doesn't double-fire on touch devices.
+      if (!wasMoved && onTap) {
+        if (e?.cancelable) e.preventDefault();
+        onTap();
+      }
       reset();
     },
     onTouchCancel: () => {

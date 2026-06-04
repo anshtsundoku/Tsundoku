@@ -105,7 +105,7 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         )}
         {post.url && (
           <a href={post.url} target="_blank" rel="noreferrer" className="px-2.5 py-1 border border-border text-muted hover:bg-ink hover:text-bg hover:border-ink transition-colors flex items-center gap-1.5">
-            <ExternalIcon className="w-3.5 h-3.5" /> Open
+            <ExternalIcon className="w-3.5 h-3.5" /> Open original
           </a>
         )}
       </div>
@@ -114,7 +114,6 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
       <article className="max-w-3xl mx-auto">
         <div className="eyebrow text-wood mb-3">
           {post.source_name || post.author}
-          {post.read_time_min ? ` / ${post.read_time_min} min` : ''}
         </div>
         {post.title && <h1 className="text-3xl sm:text-4xl font-bold leading-[1.05] tracking-tight mb-5 break-words">{post.title}</h1>}
         {post.tldr ? (

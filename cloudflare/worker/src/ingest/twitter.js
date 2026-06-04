@@ -165,7 +165,7 @@ async function runTwitterForUser(env, userId) {
           external_id: t.id,
           title:       null,
           author:      `@${s.identifier}`,
-          url:         `https://twitter.com/${s.identifier}/status/${t.id}`,
+          url:         `https://x.com/${s.identifier}/status/${t.id}`,
           content_text: t.full_text || '',
           image_url:   t.image_url,
           video_url:   t.video_url,

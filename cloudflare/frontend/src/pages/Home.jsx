@@ -10,6 +10,7 @@ import { SkeletonGrid } from '../components/Skeleton.jsx';
 
 export default function Home() {
   const [domains, setDomains] = useState([]);
+  const [sources, setSources] = useState([]);
   const [typeCounts, setTypeCounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,12 +18,14 @@ export default function Home() {
 
   const load = async () => {
     try {
-      const [ds, tc] = await Promise.all([
+      const [ds, ss, tc] = await Promise.all([
         api.listDomains(),
-        api.sourceCounts().catch(() => []),  // optional; tolerated if endpoint missing
+        api.listSources().catch(() => []),    // tolerated; empty for brand-new users
+        api.sourceCounts().catch(() => []),    // optional; tolerated if endpoint missing
       ]);
-      setDomains(ds || []);
-      setTypeCounts(tc || []);
+      setDomains(Array.isArray(ds) ? ds : []);
+      setSources(Array.isArray(ss) ? ss : []);
+      setTypeCounts(Array.isArray(tc) ? tc : []);
       setError(null);
     } catch (e) {
       console.error('Home: failed to load', e);
@@ -68,8 +71,21 @@ export default function Home() {
     );
   }
 
+  // Has domains but no sources yet (common right after onboarding when the
+  // user skipped every credential/source step) — nudge them to add one.
+  const noSources = domains.length > 0 && sources.length === 0;
+
   return (
     <div>
+      {noSources && (
+        <Link
+          to="/sources"
+          className="block mb-8 bg-elev border border-wood px-4 py-3 hover:bg-ink hover:text-bg transition-colors"
+        >
+          <span className="text-sm font-bold">you have a domain. add your first source →</span>
+        </Link>
+      )}
+
       <section className="mb-8 sm:mb-10">
         <h2 className="eyebrow text-muted mb-3 pb-2 border-b border-border">New Reads / Watches</h2>
         {/* Swiss collapses the tag borders; Wood/Bohemian space them into pills.

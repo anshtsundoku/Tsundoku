@@ -4,6 +4,15 @@ import { api } from '../lib/api.js';
 import { typeLabel } from '../lib/labels.js';
 import { PlusIcon, TrashIcon, BellIcon, BellOffIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
+import { getPushStatus, subscribeToPush } from '../lib/push.js';
+
+const PUSH_NUDGE_KEY = 'tsundoku.push.nudged';
+function wasPushNudged() {
+  try { return localStorage.getItem(PUSH_NUDGE_KEY) === '1'; } catch { return false; }
+}
+function markPushNudged() {
+  try { localStorage.setItem(PUSH_NUDGE_KEY, '1'); } catch { /* ignore */ }
+}
 
 function isNotifyOn(s) {
   return s.notify_enabled !== 0 && s.notify_enabled !== false;
@@ -31,6 +40,8 @@ export default function Sources() {
   const [editForm, setEditForm] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [notifyToast, setNotifyToast] = useState(null);
+  const [pushNudge, setPushNudge] = useState(false);   // one-time "turn on push?" banner
+  const [pushNudgeBusy, setPushNudgeBusy] = useState(false);
 
   const load = async () => {
     try {
@@ -48,6 +59,36 @@ export default function Sources() {
 
   useEffect(() => { load(); }, []);
 
+  // After a source is added, gently offer push if the user hasn't been asked
+  // and isn't already subscribed. One-time per device (localStorage).
+  const maybePushNudge = async () => {
+    if (wasPushNudged()) return;
+    try {
+      const st = await getPushStatus();
+      if (st.supported && st.configured && st.permission !== 'denied' && !st.subscribed) {
+        setPushNudge(true);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const acceptPushNudge = async () => {
+    setPushNudgeBusy(true);
+    try {
+      await subscribeToPush();
+    } catch (err) {
+      setNotice({ kind: 'warn', text: err.message || 'could not turn on push' });
+    } finally {
+      markPushNudged();
+      setPushNudge(false);
+      setPushNudgeBusy(false);
+    }
+  };
+
+  const dismissPushNudge = () => {
+    markPushNudged();
+    setPushNudge(false);
+  };
+
   const save = async (e) => {
     e.preventDefault();
     if (!form.identifier || !form.domain_slug) return;
@@ -64,6 +105,7 @@ export default function Sources() {
       }
       setForm({ type: form.type, identifier: '', display_name: '', domain_slug: form.domain_slug });
       await load();
+      maybePushNudge();
     } catch (err) {
       setNotice({ kind: 'warn', text: err.message });
     } finally {
@@ -233,6 +275,29 @@ export default function Sources() {
           )}
         </div>
       </form>
+      )}
+
+      {pushNudge && (
+        <div className="mb-6 bg-elev border border-wood px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="text-sm text-ink flex-1">want a ping when there's something new?</p>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={acceptPushNudge}
+              disabled={pushNudgeBusy}
+              className="text-xs tt-label tracking-eyebrow font-bold bg-wood text-bg px-3 py-1.5 hover:bg-wood-2 disabled:opacity-50 transition-colors"
+            >
+              {pushNudgeBusy ? '…' : 'yes, turn on'}
+            </button>
+            <button
+              type="button"
+              onClick={dismissPushNudge}
+              className="text-xs tt-label tracking-eyebrow font-bold text-muted hover:text-ink transition-colors"
+            >
+              not now
+            </button>
+          </div>
+        </div>
       )}
 
       {totalSources >= 2 && (

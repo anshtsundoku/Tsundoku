@@ -53,6 +53,7 @@ export const api = {
   me:         () => request('/auth/me'),
   logout:     () => request('/auth/logout', { method: 'POST' }),
   completeOnboarding: () => request('/auth/onboarding-complete', { method: 'POST' }),
+  setOnboardingStep: (step) => request('/auth/onboarding-step', { method: 'PATCH', body: JSON.stringify({ step }) }),
   deleteAccount: () => request('/account', { method: 'DELETE' }),
 
   listDomains: () => request('/domains'),

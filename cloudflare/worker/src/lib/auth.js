@@ -59,7 +59,7 @@ export async function currentUserOptional(env, request) {
     const payload = await verify(token, env.JWT_SECRET);
     if (payload?.uid) {
       user = (await first(env,
-        `SELECT id, email, name, picture, onboarded_at FROM users WHERE id = ?`, [payload.uid])) || null;
+        `SELECT id, email, name, picture, onboarded_at, onboarding_step FROM users WHERE id = ?`, [payload.uid])) || null;
     }
   }
 

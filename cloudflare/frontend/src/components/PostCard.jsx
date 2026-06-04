@@ -63,6 +63,7 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
 
       <article
         {...swipe.handlers}
+        onClick={() => onOpen?.()}
         style={{ transform: swipe.transform, transition: swipe.transition, touchAction: 'pan-y' }}
         className="card group bg-elev border border-border p-4 hover:border-ink transition-colors cursor-pointer select-none"
       >
@@ -74,7 +75,6 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
           <span className="truncate font-medium text-ink">{post.source_name || post.author}</span>
           <span className="sep shrink-0" />
           <span className="tabular-nums shrink-0">{timeAgo(post.published_at || post.ingested_at)}</span>
-          {post.read_time_min ? <><span className="sep shrink-0" /><span className="tabular-nums shrink-0">{post.read_time_min} min</span></> : null}
         </div>
 
         {post.title && (

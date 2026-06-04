@@ -5,7 +5,24 @@
 //   await subscribeToPush();                 // prompts permission + registers
 //   await unsubscribeFromPush();
 
+import { getToken } from './api.js';
+
 const API_BASE = 'https://tsundoku-api.ansh-tsundoku.workers.dev/api';
+
+// Every push endpoint is behind the auth gate, so calls must carry the same
+// credentials as the rest of the API client: the Bearer token (the reliable
+// cross-site path) plus the credentialed cookie.
+function authedFetch(path, opts = {}) {
+  const token = getToken();
+  return fetch(`${API_BASE}${path}`, {
+    ...opts,
+    credentials: 'include',
+    headers: {
+      ...(opts.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
 
 function urlB64ToUint8Array(b64) {
   const pad = '='.repeat((4 - (b64.length % 4)) % 4);
@@ -22,7 +39,7 @@ async function getRegistration() {
 }
 
 async function fetchVapidKey() {
-  const r = await fetch(`${API_BASE}/push/vapid-public-key`);
+  const r = await authedFetch('/push/vapid-public-key');
   if (!r.ok) return null;
   const data = await r.json();
   return data.key;
@@ -68,7 +85,7 @@ export async function subscribeToPush() {
     },
     userAgent: navigator.userAgent,
   });
-  const res = await fetch(`${API_BASE}/push/subscribe`, {
+  const res = await authedFetch('/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,
@@ -81,7 +98,7 @@ export async function unsubscribeFromPush() {
   const reg = await getRegistration();
   const sub = await reg?.pushManager.getSubscription();
   if (!sub) return false;
-  await fetch(`${API_BASE}/push/subscribe`, {
+  await authedFetch('/push/subscribe', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ endpoint: sub.endpoint }),

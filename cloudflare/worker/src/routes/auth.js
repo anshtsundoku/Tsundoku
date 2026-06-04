@@ -14,7 +14,7 @@
 import { first, run } from '../lib/db.js';
 import { json } from '../lib/router.js';
 import { sign } from '../lib/jwt.js';
-import { currentUserOptional } from '../lib/auth.js';
+import { currentUser, currentUserOptional } from '../lib/auth.js';
 
 const SESSION_COOKIE = 'session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches JWT default
@@ -198,8 +198,22 @@ export async function me(request, { env }) {
 }
 
 // POST /api/auth/onboarding-complete — mark the wizard finished (never re-triggers).
+// Also resets onboarding_step so a future manual reset starts cleanly at step 0.
 export async function onboardingComplete(request, { env }) {
   const u = await currentUser(env, request);
-  await run(env, `UPDATE users SET onboarded_at = datetime('now') WHERE id = ?`, [u.id]);
+  await run(env,
+    `UPDATE users SET onboarded_at = datetime('now'), onboarding_step = 0 WHERE id = ?`,
+    [u.id]);
+  return new Response(null, { status: 204 });
+}
+
+// PATCH /api/auth/onboarding-step — persist wizard progress so a closed tab
+// resumes where the user left off. Body: { step: number }. Auth required.
+export async function onboardingStep(request, { env }) {
+  const u = await currentUser(env, request);
+  const body = await request.json().catch(() => ({}));
+  const step = Number(body?.step);
+  if (!Number.isInteger(step) || step < 0) return json({ error: 'step (non-negative integer) required' }, 400);
+  await run(env, `UPDATE users SET onboarding_step = ? WHERE id = ?`, [step, u.id]);
   return new Response(null, { status: 204 });
 }

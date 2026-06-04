@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useSetUser, useUser } from '../App.jsx';
 import Interstitial from '../components/onboarding/Interstitial.jsx';
+import StepShell from '../components/onboarding/StepShell.jsx';
 import Welcome from '../components/onboarding/steps/Welcome.jsx';
 import CreateDomain from '../components/onboarding/steps/CreateDomain.jsx';
 import ConnectCredential from '../components/onboarding/steps/ConnectCredential.jsx';
@@ -30,16 +31,37 @@ function phaseIndex(phase) {
   return i === -1 ? 0 : i;
 }
 
+// Persisted step encoding (server: users.onboarding_step). Interstitials don't
+// get their own index — only these meaningful steps are saved/restored.
+const PHASE_TO_STEP = { welcome: 0, domain: 1, youtube: 2, x: 3, gmail: 4, gemini: 5, done: 6 };
+const STEP_TO_PHASE = ['welcome', 'domain', 'youtube', 'x', 'gmail', 'gemini', 'done'];
+
+// Resolve the phase to resume at from a saved step. Clamp past-the-end values
+// (e.g. step 6 while onboarded_at is somehow still null) back to the last
+// meaningful skippable step so the user can still finish.
+function resumePhase(step) {
+  const s = Number.isInteger(step) ? Math.min(Math.max(step, 0), 5) : 0;
+  return STEP_TO_PHASE[s] || 'welcome';
+}
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const user = useUser();
   const setUser = useSetUser();
-  const [phase, setPhase] = useState('welcome');
+  const [phase, setPhase] = useState(() => resumePhase(user?.onboarding_step));
   const [finishing, setFinishing] = useState(false);
 
   const advance = useCallback(() => {
     const i = phaseIndex(phase);
-    if (i < PHASES.length - 1) setPhase(PHASES[i + 1]);
+    if (i < PHASES.length - 1) {
+      const next = PHASES[i + 1];
+      setPhase(next);
+      // Persist progress for meaningful steps (skip interstitials).
+      // Fire-and-forget — never block the UI; ignore failures.
+      if (PHASE_TO_STEP[next] !== undefined) {
+        api.setOnboardingStep(PHASE_TO_STEP[next]).catch(() => {});
+      }
+    }
   }, [phase]);
 
   const goBack = useCallback(() => {
@@ -128,16 +150,21 @@ export default function Onboarding() {
 
   if (phase === 'gmail') {
     return (
-      <ConnectCredential
+      <StepShell
         stepNum={4}
         showBack
         onBack={goBack}
-        onSuccess={advance}
-        onSkip={advance}
         title="connect gmail."
-        body="newsletters belong in tsundoku, not your inbox. full gmail sync is still coming — you can wire an app password early if you want."
-        kind="gmail"
-        fields={[{ key: 'value', placeholder: 'gmail app password' }]}
+        body="gmail integration is coming soon. skip for now — we'll let you know when it's live."
+        primaryAction={
+          <button
+            type="button"
+            onClick={advance}
+            className="w-full bg-wood text-bg font-bold tt-label tracking-eyebrow text-sm py-3 hover:bg-wood-2 transition-colors"
+          >
+            continue
+          </button>
+        }
       />
     );
   }

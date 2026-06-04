@@ -59,12 +59,6 @@ export default function Landing() {
     return () => { clearTimeout(t); poll && clearInterval(poll); };
   }, []);
 
-  const promptManually = () => {
-    const gid = window.google?.accounts?.id;
-    if (!gid) { setError('google sign-in is still loading…'); return; }
-    gid.prompt();
-  };
-
   return (
     <main
       className="min-h-screen flex flex-col items-center justify-center text-center px-6"
@@ -74,21 +68,17 @@ export default function Landing() {
       <h1 className="text-4xl sm:text-5xl font-bold tt-title tracking-tight leading-none">Tsundoku</h1>
       <p className="mt-4 text-muted text-base sm:text-lg">the unread pile, made gentle.</p>
 
-      {/* Official Google button (always-present, reliable path). */}
+      {/* Google sign-in widget (One Tap + the official button). */}
       <div ref={btnRef} className="mt-10 min-h-[44px] flex items-center justify-center" />
 
-      {/* Spec'd fallback: manually re-trigger One Tap if it didn't appear. */}
-      {showFallback && (
-        <button
-          type="button"
-          onClick={promptManually}
-          className="mt-4 text-xs text-muted hover:text-ink underline"
-        >
-          Sign in with Google
-        </button>
-      )}
-
       {error && <p className="mt-6 text-xs text-wood max-w-sm">{error}</p>}
+
+      {/* Non-clickable fallback messaging — no alternate auth path. */}
+      {showFallback && (
+        <p className="mt-6 text-xs text-muted max-w-xs">
+          sign-in widget didn&apos;t load? refresh the page or try another browser.
+        </p>
+      )}
 
       <footer className="mt-16 text-xs text-muted flex items-center gap-3">
         <Link to="/privacy" className="hover:text-ink transition-colors">privacy</Link>

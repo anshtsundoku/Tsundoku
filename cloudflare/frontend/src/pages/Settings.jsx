@@ -20,8 +20,8 @@ const CREDENTIAL_CARDS = [
     subtitle: 'watch the channels you actually want, ingested every 15 min.',
     placeholder: 'Paste your API key' },
   { kind: 'gmail', title: 'Gmail', Icon: Mail,
-    subtitle: 'forward the newsletters you love; we summarise them as they land.',
-    placeholder: 'App password' },
+    disabled: true,
+    body: "newsletters belong in tsundoku, not your inbox. we're working on the cleanest way to connect gmail — for now, this lives on hold." },
   { kind: 'twitter', title: 'X (Twitter)', Icon: Twitter,
     subtitle: 'follow the accounts that matter, without the doomscroll.',
     twitter: true },
@@ -329,8 +329,10 @@ function ConnectSources() {
     setEditingConnected(null);
   };
 
-  const pending = CREDENTIAL_CARDS.filter(c => !status?.[c.kind]);
-  const connected = CREDENTIAL_CARDS.filter(c => status?.[c.kind]);
+  // Soft-disabled cards (e.g. Gmail) always live in Pending and never show as
+  // connected, regardless of any stored credential.
+  const pending = CREDENTIAL_CARDS.filter(c => c.disabled || !status?.[c.kind]);
+  const connected = CREDENTIAL_CARDS.filter(c => !c.disabled && status?.[c.kind]);
 
   return (
     <Section title="Connect sources">
@@ -376,6 +378,19 @@ function PendingCredentialForm({ card, onSaved, onDisconnect, updateMode }) {
   const [error, setError] = useState(null);
   if (!card) return null;
   const Icon = card.Icon;
+
+  // Soft-disabled cards (e.g. Gmail): explanatory copy only, no input/save.
+  if (card.disabled) {
+    return (
+      <div className="py-4 border-b border-border last:border-b-0">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-wood shrink-0"><Icon className="w-5 h-5" /></span>
+          <div className="font-bold tracking-tight">{card.title}</div>
+        </div>
+        <p className="text-xs text-muted leading-snug">{card.body}</p>
+      </div>
+    );
+  }
 
   const canSave = card.twitter
     ? Boolean(fields.auth_token?.trim() && fields.ct0?.trim())
