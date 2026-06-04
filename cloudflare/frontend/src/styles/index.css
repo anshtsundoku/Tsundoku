@@ -203,17 +203,31 @@ mark.mindful-highlight {
   -webkit-box-decoration-break: clone;
 }
 
-/* Reading typography for post body */
+/* Reading typography for post body — book-like reading column. */
 .prose-mindful {
-  @apply text-ink leading-relaxed;
-  font-size: 1.05rem;
+  @apply text-ink;
+  max-width: 65ch;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.7;
+  font-size: 1.0625rem;
   overflow-wrap: anywhere;
 }
-.prose-mindful p { @apply my-4; }
-.prose-mindful h1, .prose-mindful h2, .prose-mindful h3 { @apply font-bold tracking-tight mt-7 mb-2; }
-.prose-mindful a { @apply text-wood underline underline-offset-2; }
-.prose-mindful img { @apply my-5 max-w-full; border-radius: var(--r-lg); }
-.prose-mindful blockquote { @apply border-l-2 border-wood pl-4 my-5; }
+@media (min-width: 640px) {
+  .prose-mindful { font-size: 1.125rem; }
+}
+.prose-mindful p { margin-bottom: 1.25em; }
+.prose-mindful h1, .prose-mindful h2, .prose-mindful h3 { @apply font-bold mt-12 mb-4; line-height: 1.3; }
+.prose-mindful img { @apply rounded-lg my-8 w-full h-auto; }
+.prose-mindful blockquote { @apply border-l-2 border-wood pl-4 italic text-muted my-6; }
+.prose-mindful a { @apply text-wood no-underline; }
+.prose-mindful a:hover { @apply underline; }
+.prose-mindful code { @apply bg-bg border border-border rounded px-1.5 py-0.5 font-mono text-sm; }
+.prose-mindful pre code { @apply bg-elev border border-border rounded-lg p-4 font-mono text-sm overflow-x-auto; }
+
+/* Lazy image fade-in: imgs start transparent, reveal on load. */
+img[data-loaded="false"] { opacity: 0; transition: opacity 250ms ease; }
+img[data-loaded="true"]  { opacity: 1; }
 
 /* Onboarding interstitials — fade only, no bounce */
 @keyframes onboarding-fade {

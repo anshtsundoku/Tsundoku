@@ -15,6 +15,23 @@ const TABS = [
   { key: 'weekend',  label: 'Weekend' },
 ];
 
+// Relative published-at bucket for the Unread feed's date grouping.
+function dateBucket(iso) {
+  if (!iso) return 'earlier';
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return 'earlier';
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startThen = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+  const days = Math.round((startToday - startThen) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days <= 7) return 'this week';
+  return 'earlier';
+}
+
+const BUCKET_ORDER = ['today', 'yesterday', 'this week', 'earlier'];
+
 export default function Domain() {
   const { slug, postId } = useParams();
   const navigate = useNavigate();
@@ -22,6 +39,7 @@ export default function Domain() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [domain, setDomain] = useState(null);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   const load = async () => {
     const list = await api.listPosts({ domain: slug, filter: tab });
@@ -33,7 +51,7 @@ export default function Domain() {
     api.listDomains().then(ds => setDomain(ds.find(d => d.slug === slug)));
   }, [slug]);
 
-  useEffect(() => { setLoading(true); load(); }, [slug, tab]);
+  useEffect(() => { setLoading(true); setConfirmAll(false); load(); }, [slug, tab]);
   usePoll(load, 15000, [slug, tab]);
 
   // Direct fetch fallback when arriving at /d/:slug/p/:postId fresh.
@@ -73,9 +91,35 @@ export default function Domain() {
     catch (e) { console.warn('dismiss failed, reloading', e); load(); }
   };
 
+  const onMarkAllRead = async () => {
+    const targets = posts.filter(p => !p.is_read && !p.is_dismissed);
+    const count = targets.length;
+    setPosts(prev => prev.map(p => (!p.is_read && !p.is_dismissed) ? { ...p, is_read: true } : p));
+    setConfirmAll(false);
+    try {
+      await api.markReadBulk(domain.id);
+      toast(`marked ${count} posts as read.`);
+    } catch (e) {
+      console.warn('mark all failed, reloading', e);
+      load();
+    }
+  };
+
+  const domainName = domain?.name || slug;
+
   // ---- Post detail (full-screen route) ----
   if (postId) {
     if (!openPost) return <div className="text-muted">Loading…</div>;
+    // Next unread in this domain, relative to the current post's position in
+    // the loaded (unread-ordered) list.
+    const ordered = posts.filter(p => !p.is_dismissed);
+    const idx = ordered.findIndex(p => String(p.id) === String(postId));
+    let nextPost = null;
+    if (idx !== -1) {
+      for (let i = idx + 1; i < ordered.length; i++) {
+        if (!ordered[i].is_read) { nextPost = ordered[i]; break; }
+      }
+    }
     return (
       <PostDetail
         post={openPost}
@@ -83,6 +127,9 @@ export default function Domain() {
         onMarkRead={() => onMarkRead(openPost)}
         onToggleBookmark={() => onToggleBookmark(openPost)}
         onToggleWeekend={() => onToggleWeekend(openPost)}
+        nextPost={nextPost}
+        domainName={domainName}
+        onOpenNext={(np) => navigate(`/d/${slug}/p/${np.id}`)}
       />
     );
   }
@@ -133,18 +180,69 @@ export default function Domain() {
       ) : visiblePosts.length === 0 ? (
         <EmptyState kind={emptyKind} />
       ) : (
-        <div className="space-y-3">
-          {visiblePosts.map(post => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
-              onMarkRead={() => onMarkRead(post)}
-              onToggleBookmark={() => onToggleBookmark(post)}
-              onToggleWeekend={() => onToggleWeekend(post)}
-              onDismiss={() => onDismiss(post)}
-            />
-          ))}
+        <div>
+          {/* Mark-all-read affordance — Unread tab only, 3+ unread. */}
+          {tab === 'unread' && visiblePosts.length >= 3 && (
+            <div className="mb-3">
+              {confirmAll ? (
+                <div className="flex items-center justify-end gap-3 text-xs text-muted flex-wrap">
+                  <span>mark all {visiblePosts.length} unread posts in {domainName} as read?</span>
+                  <button onClick={onMarkAllRead} className="text-wood font-bold hover:underline">yes, mark all</button>
+                  <button onClick={() => setConfirmAll(false)} className="hover:text-ink transition-colors">cancel</button>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setConfirmAll(true)}
+                    className="text-xs text-muted hover:text-ink transition-colors"
+                  >
+                    mark all as read
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'unread' ? (
+            BUCKET_ORDER.map(bucket => {
+              const group = visiblePosts.filter(
+                p => dateBucket(p.published_at || p.ingested_at) === bucket
+              );
+              if (group.length === 0) return null;
+              return (
+                <div key={bucket}>
+                  <h2 className="text-xs uppercase tracking-wider text-wood font-bold mt-6 mb-2">{bucket}</h2>
+                  <div className="space-y-3">
+                    {group.map(post => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
+                        onMarkRead={() => onMarkRead(post)}
+                        onToggleBookmark={() => onToggleBookmark(post)}
+                        onToggleWeekend={() => onToggleWeekend(post)}
+                        onDismiss={() => onDismiss(post)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="space-y-3">
+              {visiblePosts.map(post => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
+                  onMarkRead={() => onMarkRead(post)}
+                  onToggleBookmark={() => onToggleBookmark(post)}
+                  onToggleWeekend={() => onToggleWeekend(post)}
+                  onDismiss={() => onDismiss(post)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -89,6 +89,7 @@ export const api = {
   },
   getPost: (id) => request(`/posts/${id}`),
   patchPost: (id, data) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  markReadBulk: (domainId) => request('/posts/mark-read-bulk', { method: 'POST', body: JSON.stringify({ domain_id: domainId }) }),
   searchPosts: (q) => request(`/posts/search?q=${encodeURIComponent(q)}`),
   libraryPosts: () => request('/posts/library'),
   dismissPost: (id) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify({ is_dismissed: true }) }),

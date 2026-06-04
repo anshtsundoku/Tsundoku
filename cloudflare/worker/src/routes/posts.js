@@ -1,4 +1,4 @@
-import { all, first } from '../lib/db.js';
+import { all, first, run } from '../lib/db.js';
 import { currentUser } from '../lib/auth.js';
 import { json } from '../lib/router.js';
 
@@ -91,6 +91,27 @@ export async function patchPost(request, { env, params }) {
   );
   if (!p) return json({ error: 'not found' }, 404);
   return json(p);
+}
+
+// POST /api/posts/mark-read-bulk — mark every unread post in a domain as read.
+// Body: { domain_id }. Ownership enforced: a domain belonging to another user
+// reads as "not found". Returns { updated: <count> }.
+export async function markReadBulk(request, { env }) {
+  const u = await currentUser(env, request);
+  const body = await request.json().catch(() => ({}));
+  const domainId = body.domain_id;
+  if (!domainId) return json({ error: 'domain_id required' }, 400);
+
+  const domain = await first(env,
+    `SELECT id FROM domains WHERE id = ? AND user_id = ?`, [domainId, u.id]);
+  if (!domain) return json({ error: 'domain not found' }, 404);
+
+  const res = await run(env, `
+    UPDATE posts SET is_read = 1, read_at = ?
+     WHERE user_id = ? AND domain_id = ? AND is_read = 0
+  `, [new Date().toISOString(), u.id, domainId]);
+  const updated = res?.meta?.changes ?? 0;
+  return json({ updated });
 }
 
 // GET /api/posts/search?q=…

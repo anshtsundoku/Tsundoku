@@ -1,19 +1,98 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { BookmarkIcon, CheckIcon, HighlightIcon, ExternalIcon, ShareIcon, WeekendIcon } from './Icons.jsx';
+
+// Relative time for the "next up" sub-line. Mirrors PostCard's compact format.
+function timeAgo(iso) {
+  if (!iso) return '';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+// Pull image srcs out of an HTML string (used for X posts with media).
+function extractImages(html) {
+  if (!html) return [];
+  const out = [];
+  const re = /<img[^>]+src=["']([^"']+)["']/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) out.push(m[1]);
+  return out;
+}
 
 // Full-page post detail. Rendered when the route is /d/:slug/p/:postId.
 // On mobile this fills the screen and the OS back gesture returns to the
 // domain feed naturally. On desktop the article body is centered for
 // comfortable reading width while header/footer span full viewport.
-export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark, onToggleWeekend }) {
+//
+// nextPost / domainName / onOpenNext are optional: Domain.jsx supplies them to
+// render the "next up" card; TypeFeed leaves them out so the card is omitted.
+export default function PostDetail({
+  post,
+  onClose,
+  onMarkRead,
+  onToggleBookmark,
+  onToggleWeekend,
+  nextPost = null,
+  domainName = null,
+  onOpenNext,
+}) {
   const [highlights, setHighlights] = useState([]);
   const [selection, setSelection] = useState('');
+  const [progress, setProgress] = useState(0);
   const bodyRef = useRef(null);
+  const markedRef = useRef(false);
+
+  const isTweet = (post.source_type || post.type) === 'twitter';
 
   useEffect(() => {
     api.listHighlights({ post_id: post.id }).then(setHighlights);
   }, [post.id]);
+
+  // Reading progress: 0→100% as the article body scrolls through the viewport.
+  useEffect(() => {
+    const handle = () => {
+      const el = bodyRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const viewport = window.innerHeight;
+      const scrolled = Math.max(0, -rect.top + viewport);
+      setProgress(Math.min(100, (scrolled / rect.height) * 100));
+    };
+    document.addEventListener('scroll', handle, { passive: true });
+    handle();
+    return () => document.removeEventListener('scroll', handle);
+  }, [post.id]);
+
+  // Auto mark-as-read once the reader passes 80%. Guarded to fire once per
+  // post visit; reset when the post changes.
+  useEffect(() => { markedRef.current = false; }, [post.id]);
+  useEffect(() => {
+    if (progress >= 80 && !post.is_read && !markedRef.current) {
+      markedRef.current = true;
+      onMarkRead?.();
+    }
+  }, [progress, post.is_read]);
+
+  // Wire lazy-fade for images injected via dangerouslySetInnerHTML (prose body).
+  // React onLoad can't attach to that markup, so we set it up imperatively.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.querySelectorAll('img').forEach(img => {
+      img.loading = 'lazy';
+      if (img.complete && img.naturalWidth > 0) {
+        img.dataset.loaded = 'true';
+      } else {
+        img.dataset.loaded = 'false';
+        img.addEventListener('load', () => { img.dataset.loaded = 'true'; }, { once: true });
+        img.addEventListener('error', () => { img.dataset.loaded = 'true'; }, { once: true });
+      }
+    });
+  }, [post.id, highlights, isTweet]);
 
   useEffect(() => {
     const handler = () => {
@@ -46,8 +125,16 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
     return { __html: html };
   };
 
+  const tweetImgs = isTweet ? extractImages(post.content_html) : [];
+
   return (
     <div>
+      {/* Reading progress bar — pinned to the very top, below the safe area. */}
+      <div
+        className="fixed left-0 bg-wood z-50 transition-all duration-100"
+        style={{ top: 'env(safe-area-inset-top)', width: `${progress}%`, height: 2 }}
+      />
+
       {/* Sticky local toolbar — Back / Mark read / Bookmark / Open external. */}
       <div className="flex items-center gap-2 pb-3 mb-6 border-b-2 border-line text-xs tt-label tracking-eyebrow font-bold flex-wrap">
         <button onClick={onClose} className="text-muted hover:text-ink transition-colors">← Back</button>
@@ -138,14 +225,51 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
         )}
 
         {post.image_url && !post.video_url && (
-          <img src={post.image_url} alt="" className="mb-8 border border-border max-w-full" />
+          <img
+            src={post.image_url}
+            alt=""
+            loading="lazy"
+            data-loaded="false"
+            onLoad={(e) => { e.currentTarget.dataset.loaded = 'true'; }}
+            className="mb-8 border border-border max-w-full"
+          />
         )}
 
-        <div
-          ref={bodyRef}
-          className="prose-mindful"
-          dangerouslySetInnerHTML={renderBody()}
-        />
+        {isTweet ? (
+          /* X/Twitter post: quoted-tweet styling, optional media grid. */
+          <div ref={bodyRef}>
+            {post.author && (
+              <div className="text-wood font-bold mb-3">@{post.author}</div>
+            )}
+            <div
+              className="bg-elev border-l-2 border-wood pl-4 py-3 my-6 whitespace-pre-line break-words"
+              style={{ fontSize: '1.5rem', lineHeight: 1.4, fontWeight: 400 }}
+            >
+              {post.content_text}
+            </div>
+            {tweetImgs.length > 1 && (
+              <div className="grid grid-cols-2 gap-2 my-6">
+                {tweetImgs.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    data-loaded="false"
+                    onLoad={(e) => { e.currentTarget.dataset.loaded = 'true'; }}
+                    className="rounded-lg w-full h-auto"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            ref={bodyRef}
+            className="prose-mindful"
+            dangerouslySetInnerHTML={renderBody()}
+          />
+        )}
 
         {highlights.length > 0 && (
           <div className="mt-12 pt-6 border-t-2 border-line">
@@ -159,6 +283,36 @@ export default function PostDetail({ post, onClose, onMarkRead, onToggleBookmark
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* "Next up" — next unread in this domain, or a finished-domain note.
+            Omitted entirely when no domain context is supplied (e.g. TypeFeed). */}
+        {(nextPost || domainName) && (
+          <div className="mt-12 pt-6 border-t border-border">
+            {nextPost ? (
+              <button
+                onClick={() => onOpenNext?.(nextPost)}
+                className="block w-full text-left group"
+              >
+                <div className="text-xs text-muted uppercase tracking-wider mb-2">next up</div>
+                <div className="text-lg font-bold mb-1 group-hover:text-wood transition-colors break-words">
+                  {nextPost.title || nextPost.source_name || nextPost.author || 'untitled'}
+                </div>
+                <div className="text-muted text-sm">
+                  {nextPost.source_name || nextPost.author}
+                  {' · '}
+                  {timeAgo(nextPost.published_at || nextPost.ingested_at)}
+                </div>
+              </button>
+            ) : (
+              <div>
+                <div className="text-xs text-muted uppercase tracking-wider mb-2">
+                  you've read everything in {domainName}.
+                </div>
+                <Link to="/" className="text-wood underline">back to all domains →</Link>
+              </div>
+            )}
           </div>
         )}
       </article>

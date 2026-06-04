@@ -111,6 +111,8 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
             src={post.image_url}
             alt=""
             loading="lazy"
+            data-loaded="false"
+            onLoad={(e) => { e.currentTarget.dataset.loaded = 'true'; }}
             className="mb-3 w-full max-h-56 object-cover border border-border"
           />
         ) : null}
