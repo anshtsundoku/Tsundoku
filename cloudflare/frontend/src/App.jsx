@@ -24,23 +24,28 @@ const UserContext = createContext(null);
 export function useUser() { return useContext(UserContext)?.user ?? null; }
 export function useSetUser() { return useContext(UserContext)?.setUser; }
 
-// Brand mark — a single closed book with a bookmark ribbon. Minimal, apt
-// for "Tsundoku" (the unread book waiting for you). Uses currentColor so
-// it inherits text-wood / text-ink.
+// Brand mark — the Tsundoku "t" with a bookmark-ribbon crossbar. Rendered as a
+// CSS mask of /logo.png filled with currentColor, so the mark always picks up
+// the active theme's accent (every call site wraps it in text-wood) across
+// light, dark, and all three interface skins.
 export function Brand({ size = 'md' }) {
   const cls =
     size === 'hero' ? 'w-20 h-20' :
     size === 'xl' ? 'w-9 h-9'  :
     size === 'lg' ? 'w-7 h-7'  :
     size === 'sm' ? 'w-5 h-5'  : 'w-6 h-6';
-  return (
-    <svg viewBox="0 0 32 32" className={cls} fill="none" stroke="currentColor"
-         strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
-      <rect x="8" y="5" width="16" height="22" rx="1.5" />
-      <line x1="11.5" y1="5" x2="11.5" y2="27" />
-      <path d="M17.5 5 L17.5 12 L20 9.5 L22.5 12 L22.5 5" />
-    </svg>
-  );
+  const maskStyle = {
+    backgroundColor: 'currentColor',
+    WebkitMaskImage: 'url(/logo.png)',
+    maskImage: 'url(/logo.png)',
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain',
+  };
+  return <span className={`inline-block ${cls}`} style={maskStyle} aria-hidden="true" />;
 }
 
 // Tiny legal disclosure footer (privacy · terms). Deliberately low-key.

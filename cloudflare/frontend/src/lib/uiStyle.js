@@ -14,7 +14,8 @@ import { api } from './api.js';
 
 const KEY = 'tsundoku.uiStyle';
 export const UI_STYLES = ['wood', 'swiss', 'bohemian'];
-const DEFAULT_STYLE = 'swiss';
+// Wood (warm walnut + cream) is the default skin for new users.
+const DEFAULT_STYLE = 'wood';
 
 export function currentUiStyle() {
   const saved = localStorage.getItem(KEY);
