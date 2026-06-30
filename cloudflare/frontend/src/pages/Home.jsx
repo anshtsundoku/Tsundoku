@@ -4,6 +4,8 @@ import { BookPlus } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
 import { usePullToRefresh } from '../lib/pullToRefresh.js';
+import { useHeartbeat } from '../lib/realtime.js';
+import { toast } from '../lib/toast.js';
 import { DomainIcon, PlusIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
 import { typeLabel, VISIBLE_TYPES } from '../lib/labels.js';

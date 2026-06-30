@@ -27,7 +27,7 @@ export default function TypeFeed() {
     const prevId = Number((prevSig || '0:0').split(':')[0]) || 0;
     load();
     if (hb.latest_id > prevId && !document.hidden) toast('new posts just landed.');
-  }, 1000);
+  }, 5000);
   usePoll(load, 60000, [type]);
 
   const [postDirect, setPostDirect] = useState(null);

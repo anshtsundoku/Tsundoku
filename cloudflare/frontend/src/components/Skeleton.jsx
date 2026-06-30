@@ -44,3 +44,29 @@ export function SkeletonGrid({ n = 8 }) {
     </div>
   );
 }
+
+// Full home shell: shelf overview, the type-pill row, and the domain grid.
+// Mirrors the live Home layout so the load -> content swap doesn't jump.
+export function SkeletonHome({ n = 8 }) {
+  return (
+    <div>
+      <div className="mb-8 sm:mb-10">
+        <div className="h-3 w-20 bg-border skeleton mb-3" />
+        <div className="h-8 w-56 bg-border skeleton mb-3" />
+        <div className="h-3 w-40 bg-border skeleton" />
+      </div>
+
+      <div className="mb-8 sm:mb-10">
+        <div className="h-3 w-36 bg-border skeleton mb-3 pb-2 border-b border-border" />
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-9 w-24 bg-border skeleton" />
+          ))}
+        </div>
+      </div>
+
+      <div className="h-3 w-24 bg-border skeleton mb-3 pb-2 border-b border-border" />
+      <SkeletonGrid n={n} />
+    </div>
+  );
+}

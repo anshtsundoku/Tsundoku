@@ -247,3 +247,15 @@ img[data-loaded="true"]  { opacity: 1; }
 .toast-fade-in {
   animation: onboarding-fade 200ms ease-out;
 }
+
+/* Home shelf — domain cards settle in with a gentle stagger on first paint.
+   Motion only; honours reduced-motion (no animation, fully visible). The
+   per-cell delay is set inline. `both` keeps cells hidden until their turn so
+   the grid assembles, then leaves transform clear so hover transforms work. */
+@keyframes shelf-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shelf-rise { animation: shelf-rise 320ms ease-out both; }
+}

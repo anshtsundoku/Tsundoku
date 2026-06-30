@@ -55,14 +55,14 @@ export default function Domain() {
   }, [slug]);
 
   useEffect(() => { setLoading(true); setConfirmAll(false); setConfirmClear(false); load(); }, [slug, tab]);
-  // Realtime: a 1s heartbeat scoped to this domain triggers one reload when new
+  // Realtime: a 5s heartbeat scoped to this domain triggers one reload when new
   // content lands. A slow poll stays as a backstop (covers read/bookmark tabs
   // and any missed heartbeat). Both are visibility-gated.
   useHeartbeat({ domain: slug }, (hb, prevSig) => {
     const prevId = Number((prevSig || '0:0').split(':')[0]) || 0;
     load();
     if (hb.latest_id > prevId && !document.hidden) toast('new posts just landed.');
-  }, 1000);
+  }, 5000);
   usePoll(load, 60000, [slug, tab]);
   const pull = usePullToRefresh(load);
 
