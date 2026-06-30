@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { usePoll } from '../lib/poll.js';
+import { useHeartbeat } from '../lib/realtime.js';
 import { typeLabel } from '../lib/labels.js';
 import PostCard from '../components/PostCard.jsx';
 import PostDetail from '../components/PostDetail.jsx';
@@ -22,7 +23,12 @@ export default function TypeFeed() {
   };
 
   useEffect(() => { setLoading(true); load(); }, [type]);
-  usePoll(load, 15000, [type]);
+  useHeartbeat({ type }, (hb, prevSig) => {
+    const prevId = Number((prevSig || '0:0').split(':')[0]) || 0;
+    load();
+    if (hb.latest_id > prevId && !document.hidden) toast('new posts just landed.');
+  }, 1000);
+  usePoll(load, 60000, [type]);
 
   const [postDirect, setPostDirect] = useState(null);
   useEffect(() => {

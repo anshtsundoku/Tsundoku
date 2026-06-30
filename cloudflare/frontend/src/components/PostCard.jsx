@@ -1,4 +1,5 @@
-import { Mail } from 'lucide-react';
+import { useState } from 'react';
+import { Mail, Play } from 'lucide-react';
 import { BookmarkIcon, CheckIcon, XIcon, WeekendIcon } from './Icons.jsx';
 import { typeLabel } from '../lib/labels.js';
 import { useSwipeable } from '../lib/swipe.js';
@@ -33,6 +34,10 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
   const isYouTube = post.source_type === 'youtube' && post.video_url;
   const isTweet = post.source_type === 'twitter';
   const tweetText = isTweet ? tweetPreview(post.content_text) : '';
+  // YouTube cards stay light: show a thumbnail with a play button and only
+  // mount the (heavy) iframe once the user actually taps play.
+  const [playing, setPlaying] = useState(false);
+  const ytThumb = post.image_url || null;
 
   // Touch gestures: right swipe = mark read, left swipe = dismiss,
   // long-press = bookmark, tap = open. Buttons still work on desktop.
@@ -100,20 +105,45 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
         ) : null}
 
         {isYouTube ? (
-          <div
-            className="aspect-video mb-3 overflow-hidden border border-border bg-bg"
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-          >
-            <iframe
-              src={post.video_url}
-              title={post.title || 'video'}
-              className="w-full h-full"
-              loading="lazy"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
+          playing ? (
+            <div
+              className="aspect-video mb-3 overflow-hidden border border-border bg-bg"
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              <iframe
+                src={`${post.video_url}?autoplay=1`}
+                title={post.title || 'video'}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-label="Play video"
+              onClick={(e) => { e.stopPropagation(); setPlaying(true); }}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="relative block w-full aspect-video mb-3 overflow-hidden border border-border bg-bg group/play"
+            >
+              {ytThumb && (
+                <img
+                  src={ytThumb}
+                  alt=""
+                  loading="lazy"
+                  data-loaded="false"
+                  onLoad={(e) => { e.currentTarget.dataset.loaded = 'true'; }}
+                  className="w-full h-full object-cover"
+                />
+              )}
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="flex items-center justify-center w-14 h-14 rounded-full bg-black/55 backdrop-blur-sm group-hover/play:bg-wood transition-colors">
+                  <Play className="w-6 h-6 text-white translate-x-0.5" fill="currentColor" />
+                </span>
+              </span>
+            </button>
+          )
         ) : post.image_url ? (
           <img
             src={post.image_url}

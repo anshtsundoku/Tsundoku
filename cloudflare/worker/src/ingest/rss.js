@@ -8,6 +8,7 @@
 import { all, first } from '../lib/db.js';
 import { parseFeed } from '../services/rssParse.js';
 import { summarize } from '../services/summarizer.js';
+import { screenContent } from '../services/screener.js';
 import { totalEmbeddedYoutubeMin } from '../lib/youtubeDurations.js';
 import { upsertPost, markSourceStatus, markSourceError } from './_common.js';
 import { decryptOrNull } from '../lib/userCreds.js';
@@ -66,13 +67,31 @@ async function ingestRssSource(env, s, geminiApiKey, ytApiKey) {
     for (const item of items) {
       if (!item.contentText && !item.title) continue;
       const kind = s.type === 'podcast' ? 'podcast episode' : 'article';
+
+      // Screener pass: strip ads / boilerplate and keep the real article text
+      // verbatim. Blogs (rss/website) are the target; podcasts keep their
+      // episode notes as-is. Falls back to the raw content on any failure.
+      let contentHtml = item.contentHtml;
+      let contentText = item.contentText;
+      if (s.type !== 'podcast') {
+        try {
+          const screened = await screenContent({
+            html: item.contentHtml, text: item.contentText, geminiApiKey,
+          });
+          contentHtml = screened.content_html ?? item.contentHtml;
+          contentText = screened.content_text ?? item.contentText;
+        } catch (e) {
+          console.warn('[rss] screener failed', s.identifier, e.message);
+        }
+      }
+
       const { tldr, read_time_min: textMin } = await summarize({
-        title: item.title, text: item.contentText, kind, geminiApiKey,
+        title: item.title, text: contentText, kind, geminiApiKey,
       });
       // Blog posts that embed YouTube videos: add the video runtime to the
       // read-time (needs the user's YT key; no-ops to 0 without one).
       const embeddedVideoMin = s.type === 'website'
-        ? await totalEmbeddedYoutubeMin(item.contentHtml, ytApiKey)
+        ? await totalEmbeddedYoutubeMin(contentHtml, ytApiKey)
         : 0;
       const read_time_min = (textMin || 0) + embeddedVideoMin;
       const post = await upsertPost(env, {
@@ -81,8 +100,8 @@ async function ingestRssSource(env, s, geminiApiKey, ytApiKey) {
         title:        item.title || null,
         author:       item.author || feed.title || null,
         url:          item.link || null,
-        content_html: item.contentHtml,
-        content_text: item.contentText,
+        content_html: contentHtml,
+        content_text: contentText,
         image_url:    item.image,
         tldr,
         read_time_min,

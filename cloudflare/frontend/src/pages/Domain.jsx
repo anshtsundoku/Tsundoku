@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { usePoll } from '../lib/poll.js';
+import { useHeartbeat } from '../lib/realtime.js';
 import { usePullToRefresh } from '../lib/pullToRefresh.js';
 import PostCard from '../components/PostCard.jsx';
 import PostDetail from '../components/PostDetail.jsx';
@@ -41,6 +42,7 @@ export default function Domain() {
   const [loading, setLoading] = useState(true);
   const [domain, setDomain] = useState(null);
   const [confirmAll, setConfirmAll] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const load = async () => {
     const list = await api.listPosts({ domain: slug, filter: tab });
@@ -52,8 +54,16 @@ export default function Domain() {
     api.listDomains().then(ds => setDomain(ds.find(d => d.slug === slug)));
   }, [slug]);
 
-  useEffect(() => { setLoading(true); setConfirmAll(false); load(); }, [slug, tab]);
-  usePoll(load, 15000, [slug, tab]);
+  useEffect(() => { setLoading(true); setConfirmAll(false); setConfirmClear(false); load(); }, [slug, tab]);
+  // Realtime: a 1s heartbeat scoped to this domain triggers one reload when new
+  // content lands. A slow poll stays as a backstop (covers read/bookmark tabs
+  // and any missed heartbeat). Both are visibility-gated.
+  useHeartbeat({ domain: slug }, (hb, prevSig) => {
+    const prevId = Number((prevSig || '0:0').split(':')[0]) || 0;
+    load();
+    if (hb.latest_id > prevId && !document.hidden) toast('new posts just landed.');
+  }, 1000);
+  usePoll(load, 60000, [slug, tab]);
   const pull = usePullToRefresh(load);
 
   // Direct fetch fallback when arriving at /d/:slug/p/:postId fresh.
@@ -91,6 +101,20 @@ export default function Domain() {
     setPosts(prev => prev.filter(p => p.id !== post.id));
     try { await api.dismissPost(post.id); }
     catch (e) { console.warn('dismiss failed, reloading', e); load(); }
+  };
+
+  const onClearDomain = async () => {
+    const count = posts.filter(p => !p.is_dismissed).length;
+    setPosts([]);
+    setConfirmClear(false);
+    try {
+      const res = await api.clearDomain(domain.id);
+      const n = res?.cleared ?? count;
+      toast(`cleared ${n} ${n === 1 ? 'post' : 'posts'} from ${domainName}.`);
+    } catch (e) {
+      console.warn('clear domain failed, reloading', e);
+      load();
+    }
   };
 
   const onMarkAllRead = async () => {
@@ -174,18 +198,41 @@ export default function Domain() {
         <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight tt-title leading-none break-words">{domain?.name || slug}</h1>
       </div>
 
-      <div className="flex gap-0 border-b-2 border-line mb-6 overflow-x-auto">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-3 py-2 text-xs font-bold tt-label tracking-eyebrow border-b-2 -mb-0.5 transition-colors shrink-0 ${
-              tab === t.key ? 'border-wood text-wood' : 'border-transparent text-muted hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex items-stretch border-b-2 border-line mb-6">
+        <div className="flex gap-0 overflow-x-auto flex-1 min-w-0">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-2 text-xs font-bold tt-label tracking-eyebrow border-b-2 -mb-0.5 transition-colors shrink-0 ${
+                tab === t.key ? 'border-wood text-wood' : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Clear domain — dismisses every post in this domain in one shot. */}
+        {!loading && posts.length > 0 && (
+          <div className="flex items-center pl-3 shrink-0">
+            {confirmClear ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted hidden sm:inline">clear everything?</span>
+                <button onClick={onClearDomain} className="text-wood font-bold hover:underline">yes</button>
+                <button onClick={() => setConfirmClear(false)} className="text-muted hover:text-ink transition-colors">no</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmClear(true)}
+                title="Remove all posts in this domain"
+                className="text-xs font-bold tt-label tracking-eyebrow text-muted hover:text-wood transition-colors"
+              >
+                clear
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {loading ? (

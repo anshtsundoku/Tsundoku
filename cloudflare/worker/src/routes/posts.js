@@ -114,6 +114,62 @@ export async function markReadBulk(request, { env }) {
   return json({ updated });
 }
 
+// POST /api/posts/clear-domain — dismiss (clear) every visible post in a
+// domain in one shot. Body: { domain_id }. Dismissed posts never reappear in
+// any feed/tab but remain in the DB (so external_id de-dupe still holds and a
+// re-ingest won't resurrect them). Ownership enforced. Returns { cleared }.
+export async function clearDomain(request, { env }) {
+  const u = await currentUser(env, request);
+  const body = await request.json().catch(() => ({}));
+  const domainId = body.domain_id;
+  if (!domainId) return json({ error: 'domain_id required' }, 400);
+
+  const domain = await first(env,
+    `SELECT id FROM domains WHERE id = ? AND user_id = ?`, [domainId, u.id]);
+  if (!domain) return json({ error: 'domain not found' }, 404);
+
+  const res = await run(env, `
+    UPDATE posts SET is_dismissed = 1
+     WHERE user_id = ? AND domain_id = ? AND is_dismissed = 0
+  `, [u.id, domainId]);
+  const cleared = res?.meta?.changes ?? 0;
+  return json({ cleared });
+}
+
+// GET /api/posts/heartbeat[?domain=slug] — cheap freshness probe for the
+// 1-second realtime poll. Returns the unread count plus the newest post id /
+// timestamp so the client can detect "something changed" without refetching a
+// full list every tick. Domain-scoped when ?domain is supplied.
+export async function heartbeat(request, { env, url }) {
+  const u = await currentUser(env, request);
+  const domain = url.searchParams.get('domain');
+  const type = url.searchParams.get('type');
+
+  const params = [u.id];
+  const wheres = [`p.user_id = ?`, `p.is_read = 0`, `p.is_dismissed = 0`];
+  let join = '';
+  if (domain || type) {
+    join = `JOIN sources s ON s.id = p.source_id JOIN domains d ON d.id = p.domain_id`;
+    if (domain) { params.push(domain); wheres.push(`d.slug = ?`); }
+    if (type)   { params.push(type);   wheres.push(`s.type = ?`); }
+  }
+
+  const row = await first(env, `
+    SELECT COUNT(*) AS unread,
+           MAX(p.id) AS latest_id,
+           MAX(COALESCE(p.published_at, p.ingested_at)) AS latest_at
+      FROM posts p
+      ${join}
+     WHERE ${wheres.join(' AND ')}
+  `, params);
+
+  return json({
+    unread: row?.unread ?? 0,
+    latest_id: row?.latest_id ?? 0,
+    latest_at: row?.latest_at ?? null,
+  });
+}
+
 // GET /api/posts/search?q=…
 // Substring match across title, tldr, and content_text. Skips dismissed.
 // Returns at most 50 most-recent matches.

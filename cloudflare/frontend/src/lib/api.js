@@ -94,6 +94,16 @@ export const api = {
   getPost: (id) => request(`/posts/${id}`),
   patchPost: (id, data) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   markReadBulk: (domainId) => request('/posts/mark-read-bulk', { method: 'POST', body: JSON.stringify({ domain_id: domainId }) }),
+  // Clear (dismiss) every visible post in a domain at once.
+  clearDomain: (domainId) => request('/posts/clear-domain', { method: 'POST', body: JSON.stringify({ domain_id: domainId }) }),
+  // Cheap freshness probe for the realtime poll. Pass { domain } or { type } to scope.
+  heartbeat: ({ domain, type } = {}) => {
+    const q = new URLSearchParams();
+    if (domain) q.set('domain', domain);
+    if (type)   q.set('type', type);
+    const qs = q.toString();
+    return request(`/posts/heartbeat${qs ? `?${qs}` : ''}`);
+  },
   searchPosts: (q) => request(`/posts/search?q=${encodeURIComponent(q)}`),
   libraryPosts: () => request('/posts/library'),
   dismissPost: (id) => request(`/posts/${id}`, { method: 'PATCH', body: JSON.stringify({ is_dismissed: true }) }),

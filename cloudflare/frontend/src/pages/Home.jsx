@@ -7,7 +7,7 @@ import { usePullToRefresh } from '../lib/pullToRefresh.js';
 import { DomainIcon, PlusIcon } from '../components/Icons.jsx';
 import DomainModal from '../components/DomainModal.jsx';
 import { typeLabel, VISIBLE_TYPES } from '../lib/labels.js';
-import { SkeletonGrid } from '../components/Skeleton.jsx';
+import { SkeletonHome } from '../components/Skeleton.jsx';
 import { getPushStatus, subscribeToPush } from '../lib/push.js';
 
 // Shared with the Sources.jsx post-add-source nudge so the user isn't
@@ -60,10 +60,17 @@ export default function Home() {
   };
 
   useEffect(() => { load(); }, []);
-  usePoll(load, 15000, []);
+  // Realtime: 1s heartbeat across all of the user's unread content reloads the
+  // grid the moment something new lands. Slow poll stays as a backstop.
+  useHeartbeat({}, (hb, prevSig) => {
+    const prevId = Number((prevSig || '0:0').split(':')[0]) || 0;
+    load();
+    if (hb.latest_id > prevId && !document.hidden) toast('new posts just landed.');
+  }, 1000);
+  usePoll(load, 60000, []);
   const pull = usePullToRefresh(load);
 
-  if (loading) return <SkeletonGrid n={8} />;
+  if (loading) return <SkeletonHome n={8} />;
   if (error)   return <div className="text-wood text-sm">Couldn't load: {error}</div>;
 
   // Build the "New Reads/Watches" row — one pill per visible source type,
@@ -75,6 +82,28 @@ export default function Home() {
   // Cheap "has content" signal: any unread across the source types we already
   // fetched (no extra request). Stands in for posts.length >= 1.
   const hasPosts = (typeCounts || []).some(r => (r.unread_count || 0) >= 1);
+
+  // Shelf overview: total unread across every domain (authoritative per-domain
+  // count from /domains), powers the page headline.
+  const totalUnread = domains.reduce((sum, d) => sum + (d.unread_count || 0), 0);
+
+  // Per-domain source-type hints, derived from the sources we already loaded
+  // (no extra request). Each domain shows the kinds of things that fill it —
+  // the "spines on the shelf". Ordered like the New Reads row, capped so a
+  // small card never overflows.
+  const typesByDomain = {};
+  for (const s of sources) {
+    (typesByDomain[s.domain_id] ||= []).push(s.type);
+  }
+  const typeRank = (t) => {
+    const i = VISIBLE_TYPES.indexOf(t);
+    return i === -1 ? 99 : i;
+  };
+  const hintsForDomain = (domainId) =>
+    [...new Set(typesByDomain[domainId] || [])]
+      .sort((a, b) => typeRank(a) - typeRank(b))
+      .map(typeLabel)
+      .slice(0, 3);
 
   // Contextual push prompt — only when there's something to be pinged about and
   // push is actually turn-on-able on this device.
@@ -111,10 +140,11 @@ export default function Home() {
   if (domains.length === 0) {
     return (
       <>
-        <div className="flex flex-col items-center text-center py-16 px-4">
-          <BookPlus className="w-16 h-16 text-wood mb-6" aria-hidden="true" />
+        <div className="relative flex flex-col items-center text-center py-20 px-4">
+          <p className="eyebrow text-muted mb-5">your shelf</p>
+          <BookPlus className="w-14 h-14 text-wood mb-6" aria-hidden="true" />
           <h2 className="tt-title text-2xl font-bold tracking-tight mb-3">no domains yet.</h2>
-          <p className="text-sm text-muted max-w-sm leading-relaxed mb-6">
+          <p className="text-sm text-muted max-w-sm leading-relaxed mb-7">
             domains are buckets for the things you read. tech, geopolitics, whatever. start with one.
           </p>
           <button
@@ -150,6 +180,7 @@ export default function Home() {
             <rect x="35" y="2"  width="20" height="108" rx="3" fill="currentColor" />
             <rect x="64" y="18" width="20" height="92"  rx="3" fill="currentColor" />
           </svg>
+          <p className="relative eyebrow text-muted mb-5">your shelf</p>
           <h2 className="relative tt-title text-2xl font-bold tracking-tight mb-3">your shelf is empty.</h2>
           <p className="relative text-sm text-muted max-w-sm leading-relaxed mb-6">
             add a source to start filling it up. blogs, youtube channels, x accounts, newsletters — pick what you actually read.
@@ -208,8 +239,31 @@ export default function Home() {
         </div>
       )}
 
-      <section className="mb-8 sm:mb-10">
-        <h2 className="eyebrow text-muted mb-3 pb-2 border-b border-border">New Reads / Watches</h2>
+      {/* Shelf overview — the calm top of the page. One emphasised stat sets
+          the tone; the rest of the page is the shelf itself. */}
+      <header className="mb-9 sm:mb-11">
+        <p className="eyebrow text-muted mb-2.5">your shelf</p>
+        <h1 className="tt-title text-2xl sm:text-3xl font-bold tracking-tight leading-none">
+          {totalUnread > 0 ? (
+            <>
+              <span className="text-wood tabular-nums">{totalUnread}</span>{' '}
+              {totalUnread === 1 ? 'thing to read' : 'new to read'}
+            </>
+          ) : (
+            'all caught up'
+          )}
+        </h1>
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+          <span className="tabular-nums">{domains.length} {domains.length === 1 ? 'domain' : 'domains'}</span>
+          <span className="sep" />
+          <span className="tabular-nums">{sources.length} {sources.length === 1 ? 'source' : 'sources'}</span>
+        </p>
+      </header>
+
+      <section className="mb-9 sm:mb-11">
+        <div className="flex items-baseline justify-between gap-3 mb-3 pb-2 border-b border-border">
+          <h2 className="eyebrow text-muted">New Reads / Watches</h2>
+        </div>
         {/* Swiss collapses the tag borders; Wood/Bohemian space them into pills.
             overflow-hidden contains the 1px collapse offset so it can never
             cause sideways scroll on narrow phones. */}
@@ -232,43 +286,67 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Domain grid. Swiss: collapsed modular hairlines (container top/left +
-          cell right/bottom). Wood/Bohemian override to gapped rounded cards. */}
-      <div className="domain-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 border-t border-l border-line">
-        {domains.map(d => (
-          <Link
-            key={d.id}
-            to={`/d/${d.slug}`}
-            className="domain-cell group relative min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col overflow-hidden"
-          >
-            <div className="text-wood group-hover:text-bg transition-colors">
-              <DomainIcon name={d.icon} className="w-6 h-6" />
-            </div>
-            <div className="flex-1" />
-            <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate tt-title">{d.name}</h2>
-              <div className="text-xs text-muted group-hover:text-bg/70 mt-1 min-h-[1.1em] tabular-nums">
-                {d.unread_count > 0 ? `${d.unread_count} new` : ''}
-              </div>
-            </div>
-            {d.unread_count > 0 && (
-              <span className="domain-badge absolute top-0 right-0 text-[10px] font-bold text-bg bg-wood px-1.5 py-0.5 min-w-[1.25rem] text-center tabular-nums">
-                {d.unread_count}
-              </span>
-            )}
-          </Link>
-        ))}
+      <section>
+        <div className="flex items-baseline justify-between gap-3 mb-3 pb-2 border-b border-border">
+          <h2 className="eyebrow text-muted">Domains</h2>
+          <span className="eyebrow text-muted tabular-nums">{domains.length}</span>
+        </div>
 
-        {/* Trailing "+" tile — create another domain. */}
-        <button
-          onClick={() => setModalOpen(true)}
-          aria-label="New domain"
-          className="domain-cell group min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col items-center justify-center text-muted"
-        >
-          <PlusIcon className="w-6 h-6 group-hover:text-bg" />
-          <span className="mt-2 text-xs font-bold tt-label tracking-eyebrow group-hover:text-bg">new domain</span>
-        </button>
-      </div>
+        {/* Domain grid — the shelf. Swiss: collapsed modular hairlines (container
+            top/left + cell right/bottom). Wood/Bohemian override to gapped
+            rounded cards. Cells carry an unread badge (emphasis) and the source
+            types that fill that shelf (hints). */}
+        <div className="domain-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 border-t border-l border-line">
+          {domains.map((d, i) => {
+            const hints = hintsForDomain(d.id);
+            return (
+              <Link
+                key={d.id}
+                to={`/d/${d.slug}`}
+                aria-label={`${d.name}${d.unread_count > 0 ? `, ${d.unread_count} new` : ''}`}
+                style={{ animationDelay: `${Math.min(i, 12) * 28}ms` }}
+                className="shelf-rise domain-cell group relative min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col overflow-hidden"
+              >
+                <div className="text-wood group-hover:text-bg transition-colors">
+                  <DomainIcon name={d.icon} className="w-6 h-6" />
+                </div>
+                <div className="flex-1" />
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate tt-title">{d.name}</h2>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs min-w-0 min-h-[1.1em] overflow-hidden whitespace-nowrap text-muted group-hover:text-bg/70">
+                    {hints.length > 0 ? (
+                      hints.map((label, j) => (
+                        <span key={label} className="inline-flex items-center gap-1.5 shrink-0">
+                          {j > 0 && <span className="sep" />}
+                          {label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="shrink-0">no sources</span>
+                    )}
+                  </div>
+                </div>
+                {d.unread_count > 0 && (
+                  <span className="domain-badge absolute top-0 right-0 text-[10px] font-bold text-bg bg-wood px-1.5 py-0.5 min-w-[1.25rem] text-center tabular-nums">
+                    {d.unread_count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+
+          {/* Trailing "+" tile — create another domain. */}
+          <button
+            onClick={() => setModalOpen(true)}
+            aria-label="New domain"
+            style={{ animationDelay: `${Math.min(domains.length, 12) * 28}ms` }}
+            className="shelf-rise domain-cell group min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col items-center justify-center text-muted"
+          >
+            <PlusIcon className="w-6 h-6 group-hover:text-bg" />
+            <span className="mt-2 text-xs font-bold tt-label tracking-eyebrow group-hover:text-bg">new domain</span>
+          </button>
+        </div>
+      </section>
 
       {modalOpen && (
         <DomainModal onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); load(); }} />

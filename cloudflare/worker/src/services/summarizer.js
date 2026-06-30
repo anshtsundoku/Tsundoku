@@ -77,7 +77,9 @@ function chooseModel(names) {
 
 // Returns { ok: true, text, model } on success, { ok: false, reason, status?, body? } otherwise.
 // `apiKey` is the per-user Gemini key (decrypted from the credential vault).
-async function callGemini(apiKey, prompt, maxTokens = 280) {
+// Exported so other services (e.g. the article screener) reuse the same
+// model-probing / retry / discovery logic instead of re-implementing it.
+export async function callGemini(apiKey, prompt, maxTokens = 280) {
   if (!apiKey) {
     return { ok: false, reason: 'no_key' };
   }
