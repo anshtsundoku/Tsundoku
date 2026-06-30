@@ -89,24 +89,6 @@ export default function Home() {
   // count from /domains), powers the page headline.
   const totalUnread = domains.reduce((sum, d) => sum + (d.unread_count || 0), 0);
 
-  // Per-domain source-type hints, derived from the sources we already loaded
-  // (no extra request). Each domain shows the kinds of things that fill it —
-  // the "spines on the shelf". Ordered like the New Reads row, capped so a
-  // small card never overflows.
-  const typesByDomain = {};
-  for (const s of sources) {
-    (typesByDomain[s.domain_id] ||= []).push(s.type);
-  }
-  const typeRank = (t) => {
-    const i = VISIBLE_TYPES.indexOf(t);
-    return i === -1 ? 99 : i;
-  };
-  const hintsForDomain = (domainId) =>
-    [...new Set(typesByDomain[domainId] || [])]
-      .sort((a, b) => typeRank(a) - typeRank(b))
-      .map(typeLabel)
-      .slice(0, 3);
-
   // Contextual push prompt — only when there's something to be pinged about and
   // push is actually turn-on-able on this device.
   const showPushBanner =
@@ -296,46 +278,30 @@ export default function Home() {
 
         {/* Domain grid — the shelf. Swiss: collapsed modular hairlines (container
             top/left + cell right/bottom). Wood/Bohemian override to gapped
-            rounded cards. Cells carry an unread badge (emphasis) and the source
-            types that fill that shelf (hints). */}
+            rounded cards. Each cell shows the domain name + an unread badge. */}
         <div className="domain-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 border-t border-l border-line">
-          {domains.map((d, i) => {
-            const hints = hintsForDomain(d.id);
-            return (
-              <Link
-                key={d.id}
-                to={`/d/${d.slug}`}
-                aria-label={`${d.name}${d.unread_count > 0 ? `, ${d.unread_count} new` : ''}`}
-                style={{ animationDelay: `${Math.min(i, 12) * 28}ms` }}
-                className="shelf-rise domain-cell group relative min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col overflow-hidden"
-              >
-                <div className="text-wood group-hover:text-bg transition-colors">
-                  <DomainIcon name={d.icon} className="w-6 h-6" />
-                </div>
-                <div className="flex-1" />
-                <div className="min-w-0">
-                  <h2 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate tt-title">{d.name}</h2>
-                  <div className="mt-1 flex items-center gap-1.5 text-xs min-w-0 min-h-[1.1em] overflow-hidden whitespace-nowrap text-muted group-hover:text-bg/70">
-                    {hints.length > 0 ? (
-                      hints.map((label, j) => (
-                        <span key={label} className="inline-flex items-center gap-1.5 shrink-0">
-                          {j > 0 && <span className="sep" />}
-                          {label}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="shrink-0">no sources</span>
-                    )}
-                  </div>
-                </div>
-                {d.unread_count > 0 && (
-                  <span className="domain-badge absolute top-0 right-0 text-[10px] font-bold text-bg bg-wood px-1.5 py-0.5 min-w-[1.25rem] text-center tabular-nums">
-                    {d.unread_count}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+          {domains.map((d, i) => (
+            <Link
+              key={d.id}
+              to={`/d/${d.slug}`}
+              aria-label={`${d.name}${d.unread_count > 0 ? `, ${d.unread_count} new` : ''}`}
+              style={{ animationDelay: `${Math.min(i, 12) * 28}ms` }}
+              className="shelf-rise domain-cell group relative min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col overflow-hidden"
+            >
+              <div className="text-wood group-hover:text-bg transition-colors">
+                <DomainIcon name={d.icon} className="w-6 h-6" />
+              </div>
+              <div className="flex-1" />
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate tt-title">{d.name}</h2>
+              </div>
+              {d.unread_count > 0 && (
+                <span className="domain-badge absolute top-0 right-0 text-[10px] font-bold text-bg bg-wood px-1.5 py-0.5 min-w-[1.25rem] text-center tabular-nums">
+                  {d.unread_count}
+                </span>
+              )}
+            </Link>
+          ))}
 
           {/* Trailing "+" tile — create another domain. */}
           <button
