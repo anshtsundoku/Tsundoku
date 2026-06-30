@@ -138,8 +138,8 @@ export default {
     console.log(`[cron] ${cron} firing at ${new Date().toISOString()}`);
     try {
       if (cron === '*/5 * * * *')  ctx.waitUntil(runRss(env, ctx));
+      if (cron === '*/5 * * * *')  ctx.waitUntil(runTwitter(env, ctx));
       if (cron === '*/15 * * * *') ctx.waitUntil(runYoutube(env, ctx));
-      if (cron === '*/20 * * * *') ctx.waitUntil(runTwitter(env, ctx));
       if (cron === '*/10 * * * *') ctx.waitUntil(runNewsletters(env, ctx));
       if (cron === '*/10 * * * *') ctx.waitUntil(runGmail(env, ctx));
       if (cron === '0 3 * * *')    ctx.waitUntil(runCleanup(env));
