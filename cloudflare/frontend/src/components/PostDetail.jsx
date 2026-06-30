@@ -116,8 +116,28 @@ export default function PostDetail({
   };
 
   const renderBody = () => {
-    let html = post.content_html
-      || (post.content_text ? `<p>${escape(post.content_text).replace(/\n\n+/g, '</p><p>')}</p>` : '');
+    // Defense-in-depth for an ingestion bug that stored ENTITY-ESCAPED html
+    // (e.g. "&lt;p&gt;...") in content_html, which would otherwise render as
+    // literal "<p>" text. Detect that case and decode once. Also handle legacy
+    // posts whose raw HTML landed in content_text.
+    const ch = post.content_html;
+    let html;
+    if (ch && looksEscapedHtml(ch)) {
+      html = decodeEntities(ch);
+    } else if (ch) {
+      html = ch;
+    } else if (post.content_text) {
+      if (looksEscapedHtml(post.content_text)) {
+        html = decodeEntities(post.content_text);
+      } else if (looksRawHtml(post.content_text)) {
+        html = post.content_text;
+      } else {
+        html = `<p>${escape(post.content_text).replace(/\n\n+/g, '</p><p>')}</p>`;
+      }
+    } else {
+      html = '';
+    }
+    html = sanitizeHtml(html);
     for (const h of highlights) {
       const re = new RegExp(escapeRegExp(h.text), 'g');
       html = html.replace(re, m => `<mark class="mindful-highlight">${m}</mark>`);
@@ -337,4 +357,36 @@ function escapeRegExp(s) {
 }
 function escape(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Body looks like entity-escaped HTML (tags written as &lt;p&gt;) with no real
+// tags — i.e. it would render as literal text if injected as-is.
+function looksEscapedHtml(s) {
+  return !!s && /&lt;\/?[a-z][\s\S]*?&gt;/i.test(s) && !/<[a-z!/][^>]*>/i.test(s);
+}
+// Body contains real HTML tags.
+function looksRawHtml(s) {
+  return !!s && /<\/?[a-z][a-z0-9]*(\s[^>]*)?>/i.test(s);
+}
+// Decode the entities needed to turn escaped markup back into real HTML.
+// &amp; is decoded last so we don't double-decode.
+function decodeEntities(s) {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
+}
+// Minimal sanitizer: strip script/style/object/embed and JS execution vectors
+// before injecting feed HTML. Keeps article markup (p, a, img, video, pre...).
+function sanitizeHtml(s) {
+  if (!s) return '';
+  return s
+    .replace(/<\s*(script|style|object|embed)\b[\s\S]*?<\/\s*\1\s*>/gi, '')
+    .replace(/<\s*(script|style|object|embed|link|meta)\b[^>]*>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]+)/gi, '$1="#"');
 }

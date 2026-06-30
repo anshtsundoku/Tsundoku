@@ -33,11 +33,19 @@ const BLOCK_TAGS = 'div|section|aside|figure|ul|ol|nav|header|footer|form|p|span
 function stripBoilerplateHtml(html) {
   if (!html) return '';
   let s = html
-    .replace(/<(script|style|noscript|svg|form|template)[\s\S]*?<\/\1>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '');
+    .replace(/<(script|style|noscript|svg|form|template|object|embed)[\s\S]*?<\/\1>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    // Neutralize the two HTML-borne JS execution vectors (defense in depth;
+    // the body is later injected via dangerouslySetInnerHTML).
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]+)/gi, '$1="#"');
 
+  // Match a bad word only at the START of a class/id token (right after the
+  // opening quote, or after a space/_/-). This avoids gutting real content
+  // whose class merely CONTAINS a bad substring, e.g. "post-header" (has "ad"),
+  // "reading-list" (has "read"), "shadow-box" (has "ad").
   const re = new RegExp(
-    `<(${BLOCK_TAGS})\\b[^>]*\\b(?:class|id|role|aria-label)\\s*=\\s*["'][^"']*(?:${BAD_WORD})[^"']*["'][^>]*>[\\s\\S]*?<\\/\\1>`,
+    `<(${BLOCK_TAGS})\\b[^>]*\\b(?:class|id|role|aria-label)\\s*=\\s*["'](?:[^"']*?[\\s_-])?(?:${BAD_WORD})[^"']*["'][^>]*>[\\s\\S]*?<\\/\\1>`,
     'gi'
   );
   for (let i = 0; i < 3; i++) {
@@ -123,13 +131,27 @@ async function geminiStripAds(text, geminiApiKey) {
 // { content_text, content_html }. `geminiApiKey` is optional — without it we
 // do the deterministic pass only.
 export async function screenContent({ html, text, geminiApiKey } = {}) {
-  const cleanedHtml = html ? stripBoilerplateHtml(html) : '';
-  let cleanedText = cleanedHtml
-    ? stripHtml(cleanedHtml)
-    : (text || '');
+  let cleanedHtml = '';
+  try {
+    cleanedHtml = html ? stripBoilerplateHtml(html) : '';
+    // Safety valve: if the strip removed most of the body, it almost certainly
+    // ate real content. Keep the original rather than ship a gutted article.
+    if (html && cleanedHtml.replace(/\s/g, '').length < html.replace(/\s/g, '').length * 0.4) {
+      cleanedHtml = html;
+    }
+  } catch (e) {
+    console.warn('[screener] html strip failed:', e.message);
+    cleanedHtml = html || '';
+  }
+
+  // content_text is ALWAYS clean plain text derived from the renderable HTML
+  // (or the provided text). Raw HTML must never land in content_text.
+  let cleanedText = cleanedHtml ? stripHtml(cleanedHtml) : (text || '');
   cleanedText = stripBoilerplateText(cleanedText);
 
   // Only spend a model call when there's enough text to be worth screening.
+  // The model only trims the plain-text copy (for the summarizer/storage); the
+  // renderable content_html is never sent to or rewritten by the model.
   if (geminiApiKey && cleanedText && cleanedText.length > 600) {
     try {
       cleanedText = await geminiStripAds(cleanedText, geminiApiKey);
