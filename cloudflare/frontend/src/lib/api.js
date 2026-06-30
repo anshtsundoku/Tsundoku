@@ -84,11 +84,12 @@ export const api = {
   // Trigger a manual first fetch for one source (used right after adding it).
   ingestNow: (id) => request(`/sources/${id}/ingest-now`, { method: 'POST' }),
 
-  listPosts: ({ domain, type, filter = 'unread', cursor } = {}) => {
+  listPosts: ({ domain, type, filter = 'unread', cursor, limit } = {}) => {
     const q = new URLSearchParams({ filter });
     if (domain) q.set('domain', domain);
     if (type)   q.set('type', type);
     if (cursor) q.set('cursor', cursor);
+    if (limit)  q.set('limit', String(limit));
     return request(`/posts?${q}`);
   },
   getPost: (id) => request(`/posts/${id}`),

@@ -259,3 +259,24 @@ img[data-loaded="true"]  { opacity: 1; }
 @media (prefers-reduced-motion: no-preference) {
   .shelf-rise { animation: shelf-rise 320ms ease-out both; }
 }
+
+/* Line clamps — keep feed cards a uniform, fast-to-scan height regardless of
+   how long a title / preview runs. */
+.clamp-2, .clamp-3, .clamp-4 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-2 { -webkit-line-clamp: 2; }
+.clamp-3 { -webkit-line-clamp: 3; }
+.clamp-4 { -webkit-line-clamp: 4; }
+
+/* Read-right-now card — gentle lift on the soft-shadow skins (Wood/Bohemian)
+   to read as the page's primary action. Swiss stays flat by design. Motion
+   only; honours reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-wood .start-card,
+  .ui-bohemian .start-card { transition: transform 180ms ease, border-color 200ms ease, box-shadow 200ms ease; }
+  .ui-wood .start-card:hover,
+  .ui-bohemian .start-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(60,40,30,0.10); }
+}

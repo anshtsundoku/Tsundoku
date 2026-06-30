@@ -30,6 +30,26 @@ function tweetPreview(text) {
   return cleaned.slice(0, TWEET_PREVIEW_LIMIT).trimEnd() + '…';
 }
 
+// Quiet ghost icon-button for the secondary card actions. Active (bookmarked /
+// weekend) reads in the accent; everything else stays muted until hover so the
+// row never competes with the post itself. Touch target stays ~40px.
+function ActionButton({ onClick, active, label, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      className={`p-2.5 -my-1 transition-colors ${
+        active ? 'text-wood' : 'text-muted hover:text-wood'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, onToggleWeekend, onDismiss }) {
   const isYouTube = post.source_type === 'youtube' && post.video_url;
   const isTweet = post.source_type === 'twitter';
@@ -77,31 +97,34 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
         {...swipe.handlers}
         onClick={() => onOpen?.()}
         style={{ transform: swipe.transform, transition: swipe.transition, touchAction: 'pan-y' }}
-        className="card group bg-elev border border-border p-4 hover:border-ink transition-colors cursor-pointer select-none"
+        className={`card group bg-elev border border-border p-4 hover:border-wood transition-colors cursor-pointer select-none ${
+          post.is_read ? 'opacity-[0.72]' : ''
+        }`}
       >
-        <div className="flex items-center gap-2 text-xs text-muted mb-2.5 tt-label tracking-eyebrow min-w-0">
+        {/* Source line — format · who on the left, freshness pinned right. */}
+        <div className="flex items-center gap-2 text-xs text-muted mb-2 tt-label tracking-eyebrow min-w-0">
           <span className="font-bold text-wood shrink-0 inline-flex items-center gap-1">
             {post.source_type === 'gmail' && <Mail className="w-3 h-3" />}
             {sourceLabel(post.source_type)}
           </span>
           <span className="sep shrink-0" />
           <span className="truncate font-medium text-ink">{post.source_name || post.author}</span>
-          <span className="sep shrink-0" />
+          <span className="flex-1" />
           <span className="tabular-nums shrink-0">{timeAgo(post.published_at || post.ingested_at)}</span>
         </div>
 
         {post.title && (
-          <h3 className="font-bold text-lg leading-snug tracking-tight mb-1.5 group-hover:text-wood transition-colors break-words">{post.title}</h3>
+          <h3 className="font-bold text-lg leading-snug tracking-tight mb-1.5 clamp-2 group-hover:text-wood transition-colors break-words">{post.title}</h3>
         )}
 
         {/* Tweets: show the tweet text (200-char preview) as the primary body
             rather than only an image. Other types keep the AI TLDR. */}
         {isTweet ? (
           tweetText ? (
-            <p className="text-[15px] text-ink leading-relaxed mb-3 whitespace-pre-line break-words">{tweetText}</p>
+            <p className="text-[15px] text-ink leading-relaxed mb-3 clamp-4 whitespace-pre-line break-words">{tweetText}</p>
           ) : null
         ) : post.tldr ? (
-          <p className="text-sm text-muted leading-relaxed mb-3 whitespace-pre-line">{post.tldr}</p>
+          <p className="text-sm text-muted leading-relaxed mb-3 clamp-3 whitespace-pre-line">{post.tldr}</p>
         ) : null}
 
         {isYouTube ? (
@@ -155,51 +178,32 @@ export default function PostCard({ post, onOpen, onMarkRead, onToggleBookmark, o
           />
         ) : null}
 
+        {/* Action row — one emphasised primary (mark read) on the left, quiet
+            icon-only secondary actions on the right. */}
         <div
-          className="flex items-center gap-2 mt-3 pt-3 border-t border-border flex-wrap text-xs tt-label tracking-eyebrow font-bold"
+          className="flex items-center gap-1 mt-3 pt-3 border-t border-border"
           onClick={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >
           {!post.is_read && (
             <button
               onClick={onMarkRead}
-              className="px-2.5 py-1 border border-border text-muted hover:bg-ink hover:text-bg hover:border-ink transition-colors flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 px-2.5 py-2 -my-1 text-xs font-bold tt-label tracking-eyebrow text-muted hover:text-wood transition-colors"
             >
-              <CheckIcon className="w-3.5 h-3.5" /> Mark read
+              <CheckIcon className="w-4 h-4" />
+              <span>read</span>
             </button>
           )}
-          <button
-            onClick={onToggleBookmark}
-            className={`px-2.5 py-1 border flex items-center gap-1.5 transition-colors ${
-              post.is_bookmarked
-                ? 'border-wood bg-wood text-bg'
-                : 'border-border text-muted hover:bg-ink hover:text-bg hover:border-ink'
-            }`}
-          >
-            <BookmarkIcon filled={post.is_bookmarked} className="w-3.5 h-3.5" />
-            {post.is_bookmarked ? 'Bookmarked' : 'Bookmark'}
-          </button>
-          <button
-            onClick={onToggleWeekend}
-            className={`px-2.5 py-1 border flex items-center gap-1.5 transition-colors ${
-              post.is_weekend
-                ? 'border-wood bg-wood text-bg'
-                : 'border-border text-muted hover:bg-ink hover:text-bg hover:border-ink'
-            }`}
-            title="Save for the weekend"
-          >
-            <WeekendIcon filled={post.is_weekend} className="w-3.5 h-3.5" />
-            Weekend
-          </button>
           <div className="flex-1" />
-          <button
-            onClick={onDismiss}
-            aria-label="Remove from feed"
-            title="Remove from feed"
-            className="px-2 py-1 text-muted hover:text-wood transition-colors flex items-center gap-1.5"
-          >
-            <XIcon className="w-3.5 h-3.5" /> Remove
-          </button>
+          <ActionButton onClick={onToggleBookmark} active={post.is_bookmarked} label={post.is_bookmarked ? 'Bookmarked' : 'Bookmark'}>
+            <BookmarkIcon filled={post.is_bookmarked} className="w-4 h-4" />
+          </ActionButton>
+          <ActionButton onClick={onToggleWeekend} active={post.is_weekend} label="Save for the weekend">
+            <WeekendIcon filled={post.is_weekend} className="w-4 h-4" />
+          </ActionButton>
+          <ActionButton onClick={onDismiss} label="Remove from feed">
+            <XIcon className="w-4 h-4" />
+          </ActionButton>
         </div>
       </article>
     </div>

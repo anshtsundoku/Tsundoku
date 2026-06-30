@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookPlus } from 'lucide-react';
+import { BookPlus, ArrowRight } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { usePoll } from '../lib/poll.js';
 import { usePullToRefresh } from '../lib/pullToRefresh.js';
@@ -88,6 +88,13 @@ export default function Home() {
   // Shelf overview: total unread across every domain (authoritative per-domain
   // count from /domains), powers the page headline.
   const totalUnread = domains.reduce((sum, d) => sum + (d.unread_count || 0), 0);
+
+  // "Read right now" entry point: the shelf with the most unread. A single
+  // deliberate next action so the page answers "where do i start".
+  const topDomain = domains.reduce(
+    (best, d) => ((d.unread_count || 0) > (best?.unread_count || 0) ? d : best),
+    null,
+  );
 
   // Contextual push prompt — only when there's something to be pinged about and
   // push is actually turn-on-able on this device.
@@ -225,7 +232,7 @@ export default function Home() {
 
       {/* Shelf overview — the calm top of the page. One emphasised stat sets
           the tone; the rest of the page is the shelf itself. */}
-      <header className="mb-9 sm:mb-11">
+      <header className="mb-6 sm:mb-8">
         <p className="eyebrow text-muted mb-2.5">your shelf</p>
         <h1 className="tt-title text-2xl sm:text-3xl font-bold tracking-tight leading-none">
           {totalUnread > 0 ? (
@@ -243,6 +250,30 @@ export default function Home() {
           <span className="tabular-nums">{sources.length} {sources.length === 1 ? 'source' : 'sources'}</span>
         </p>
       </header>
+
+      {/* Read-right-now — the single most useful next action. Points at the
+          fullest shelf so there's no decision paralysis at the top of the page.
+          Hidden when caught up (the headline already says so). */}
+      {totalUnread > 0 && topDomain && (topDomain.unread_count || 0) > 0 && (
+        <Link
+          to={`/d/${topDomain.slug}`}
+          aria-label={`Start reading ${topDomain.name}, ${topDomain.unread_count} new`}
+          className="start-card group flex items-center gap-4 mb-9 sm:mb-11 bg-elev border border-border rounded-xl shadow-soft p-5 sm:p-6 hover:border-wood transition-colors"
+        >
+          <div className="text-wood shrink-0">
+            <DomainIcon name={topDomain.icon} className="w-7 h-7" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="eyebrow text-wood mb-1.5">start here</p>
+            <h2 className="tt-title text-lg sm:text-xl font-bold tracking-tight leading-tight truncate">{topDomain.name}</h2>
+            <p className="mt-1 text-sm text-muted">
+              <span className="text-wood font-bold tabular-nums">{topDomain.unread_count}</span>{' '}
+              {topDomain.unread_count === 1 ? 'piece' : 'pieces'} waiting
+            </p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-muted shrink-0 group-hover:text-wood group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+        </Link>
+      )}
 
       <section className="mb-9 sm:mb-11">
         <div className="flex items-baseline justify-between gap-3 mb-3 pb-2 border-b border-border">
@@ -288,7 +319,9 @@ export default function Home() {
               style={{ animationDelay: `${Math.min(i, 12) * 28}ms` }}
               className="shelf-rise domain-cell group relative min-w-0 bg-bg border-r border-b border-line aspect-square p-4 hover:bg-ink hover:text-bg transition-colors flex flex-col overflow-hidden"
             >
-              <div className="text-wood group-hover:text-bg transition-colors">
+              {/* Unread shelves carry the accent so the eye lands on what has
+                  something new; caught-up shelves recede to muted. */}
+              <div className={`${d.unread_count > 0 ? 'text-wood' : 'text-muted'} group-hover:text-bg transition-colors`}>
                 <DomainIcon name={d.icon} className="w-6 h-6" />
               </div>
               <div className="flex-1" />

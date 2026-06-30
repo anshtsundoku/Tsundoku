@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
@@ -7,6 +7,7 @@ import { useHeartbeat } from '../lib/realtime.js';
 import { usePullToRefresh } from '../lib/pullToRefresh.js';
 import PostCard from '../components/PostCard.jsx';
 import PostDetail from '../components/PostDetail.jsx';
+import LoadMore from '../components/LoadMore.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import { EmptyState } from '../components/EmptyState.jsx';
 
@@ -16,6 +17,17 @@ const TABS = [
   { key: 'bookmark', label: 'Bookmarked' },
   { key: 'weekend',  label: 'Weekend' },
 ];
+
+// How many posts to pull per page. Initial paint stays light; the rest stream
+// in via infinite scroll as the reader approaches the end.
+const PAGE_SIZE = 30;
+
+// Cursor = the published/ingested timestamp of the last loaded row (the server
+// paginates on COALESCE(published_at, ingested_at) < cursor).
+function cursorOf(list) {
+  const last = list[list.length - 1];
+  return last ? (last.published_at || last.ingested_at) : null;
+}
 
 // Relative published-at bucket for the Unread feed's date grouping.
 function dateBucket(iso) {
@@ -43,11 +55,54 @@ export default function Domain() {
   const [domain, setDomain] = useState(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [cursor, setCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Guards against overlapping page fetches (observer can fire rapidly).
+  const fetchingMore = useRef(false);
 
+  // Fresh load of page one. Resets pagination — used on mount, tab switch and
+  // domain switch.
   const load = async () => {
-    const list = await api.listPosts({ domain: slug, filter: tab });
+    const list = await api.listPosts({ domain: slug, filter: tab, limit: PAGE_SIZE });
     setPosts(list);
+    setCursor(cursorOf(list));
+    setHasMore(list.length >= PAGE_SIZE);
     setLoading(false);
+  };
+
+  // Background refresh (heartbeat / poll / pull-to-refresh). Re-fetches the
+  // currently-loaded window from the top so new posts surface without
+  // collapsing the reader back to page one.
+  const refresh = async () => {
+    const want = Math.min(Math.max(PAGE_SIZE, posts.length), 100);
+    const list = await api.listPosts({ domain: slug, filter: tab, limit: want });
+    setPosts(list);
+    setCursor(cursorOf(list));
+    setHasMore(list.length >= want);
+    setLoading(false);
+  };
+
+  // Next page — appended, de-duped by id.
+  const loadMore = async () => {
+    if (fetchingMore.current || !hasMore || !cursor) return;
+    fetchingMore.current = true;
+    setLoadingMore(true);
+    try {
+      const next = await api.listPosts({ domain: slug, filter: tab, cursor, limit: PAGE_SIZE });
+      setPosts(prev => {
+        const seen = new Set(prev.map(p => p.id));
+        const merged = [...prev, ...next.filter(p => !seen.has(p.id))];
+        return merged;
+      });
+      setCursor(cursorOf(next));
+      setHasMore(next.length >= PAGE_SIZE);
+    } catch (e) {
+      console.warn('loadMore failed', e);
+    } finally {
+      setLoadingMore(false);
+      fetchingMore.current = false;
+    }
   };
 
   useEffect(() => {
@@ -60,11 +115,11 @@ export default function Domain() {
   // and any missed heartbeat). Both are visibility-gated.
   useHeartbeat({ domain: slug }, (hb, prevSig) => {
     const prevId = Number((prevSig || '0:0').split(':')[0]) || 0;
-    load();
+    refresh();
     if (hb.latest_id > prevId && !document.hidden) toast('new posts just landed.');
   }, 5000);
-  usePoll(load, 60000, [slug, tab]);
-  const pull = usePullToRefresh(load);
+  usePoll(refresh, 60000, [slug, tab]);
+  const pull = usePullToRefresh(refresh);
 
   // Direct fetch fallback when arriving at /d/:slug/p/:postId fresh.
   const [postDirect, setPostDirect] = useState(null);
@@ -106,6 +161,8 @@ export default function Domain() {
   const onClearDomain = async () => {
     const count = posts.filter(p => !p.is_dismissed).length;
     setPosts([]);
+    setCursor(null);
+    setHasMore(false);
     setConfirmClear(false);
     try {
       const res = await api.clearDomain(domain.id);
@@ -180,6 +237,18 @@ export default function Domain() {
     weekend:  'no-weekend',
   }[tab];
 
+  const renderCard = (post) => (
+    <PostCard
+      key={post.id}
+      post={post}
+      onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
+      onMarkRead={() => onMarkRead(post)}
+      onToggleBookmark={() => onToggleBookmark(post)}
+      onToggleWeekend={() => onToggleWeekend(post)}
+      onDismiss={() => onDismiss(post)}
+    />
+  );
+
   return (
     <div {...pull.handlers}>
       {(pull.isRefreshing || pull.pullDistance > 0) && (
@@ -246,7 +315,7 @@ export default function Domain() {
             <div className="mb-3">
               {confirmAll ? (
                 <div className="flex items-center justify-end gap-3 text-xs text-muted flex-wrap">
-                  <span>mark all {visiblePosts.length} unread posts in {domainName} as read?</span>
+                  <span>mark all unread posts in {domainName} as read?</span>
                   <button onClick={onMarkAllRead} className="text-wood font-bold hover:underline">yes, mark all</button>
                   <button onClick={() => setConfirmAll(false)} className="hover:text-ink transition-colors">cancel</button>
                 </div>
@@ -271,38 +340,20 @@ export default function Domain() {
               if (group.length === 0) return null;
               return (
                 <div key={bucket}>
-                  <h2 className="text-xs uppercase tracking-wider text-wood font-bold mt-6 mb-2">{bucket}</h2>
+                  <h2 className="eyebrow text-wood mt-7 first:mt-0 mb-2.5">{bucket}</h2>
                   <div className="space-y-3">
-                    {group.map(post => (
-                      <PostCard
-                        key={post.id}
-                        post={post}
-                        onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
-                        onMarkRead={() => onMarkRead(post)}
-                        onToggleBookmark={() => onToggleBookmark(post)}
-                        onToggleWeekend={() => onToggleWeekend(post)}
-                        onDismiss={() => onDismiss(post)}
-                      />
-                    ))}
+                    {group.map(renderCard)}
                   </div>
                 </div>
               );
             })
           ) : (
             <div className="space-y-3">
-              {visiblePosts.map(post => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onOpen={() => navigate(`/d/${slug}/p/${post.id}`)}
-                  onMarkRead={() => onMarkRead(post)}
-                  onToggleBookmark={() => onToggleBookmark(post)}
-                  onToggleWeekend={() => onToggleWeekend(post)}
-                  onDismiss={() => onDismiss(post)}
-                />
-              ))}
+              {visiblePosts.map(renderCard)}
             </div>
           )}
+
+          <LoadMore hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
         </div>
       )}
     </div>
